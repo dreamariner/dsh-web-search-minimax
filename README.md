@@ -1,2 +1,70 @@
-# dsh-web-search-minimax
-Support minimax search for deepseek harness.
+# @dreamariner/dsh-web-search-minimax
+
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 MiniMax 联网搜索 provider，以**自挂载 bundle**（官方「一包既是 bundle 又是 plugin」形态）发布，可用 `dsh plugin` 独立安装。自 外部 DSH 定制仓 拆出（issue 028），与人格/记忆体系零耦合。
+
+## 功能
+
+- 实现 DSH 的 `WebSearchProvider` seam：`id / available / search` 三成员。
+- 走 MiniMax `POST {searchBaseUrl}/v1/coding_plan/search`，**复用对话的 LLM 密钥**，不为搜索单开账号。
+- 失败一律抛带机器可读 code 的错误（`MINIMAX_SEARCH_KEY_MISSING / _TRANSPORT / _HTTP / _REJECTED / _BAD_RESPONSE / _EMPTY`），不静默返回空结果。
+- MiniMax 单次最多 10 条且不支持分页：只按接口硬上限封顶并如实置 `truncated`，条数截断责任在 DSH 工具层的 `tool-web.searchMaxResults`。
+
+## 安装
+
+```sh
+dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax   # npm
+# 或从 git：
+dsh plugin --profile <name> add github:dreamariner/dsh-web-search-minimax
+```
+
+git 安装拉的是源码，pnpm 会在装后跑本包的 `prepare`（`tsdown`）构建 `lib/`；pnpm ≥10 需要在 profile 的 `pnpm-workspace.yaml` 里放行构建（`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`）。
+
+## 配置
+
+插件自带一行自挂载 patch，其中包含 `web` 行接线（**必须随插件走**：不显式配 `searchProvider` 会与内置 provider 并存撞 `WEB_PROVIDER_AMBIGUOUS`，搜索全废）：
+
+```yaml
+- id: web
+  config:
+    searchProvider: minimax
+    fetchProvider: http
+```
+
+插件自身配置（3+1 项，全有默认值，通常零配置即可用）：
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `searchBaseUrl` | `https://api.minimaxi.com` | 搜索接口基址 |
+| `searchKeyEnv` | `MINIMAX_CN_API_KEY` | **存密钥的环境变量名**（只存名字） |
+| `searchTimeoutMs` | `30000` | 单次搜索超时 |
+| `logPath` | `$DSH_HOME/logs/dsh-web-search-minimax.log` | 插件日志 |
+
+密钥值放 `~/.dsh/.env`（红线：密钥不进任何仓库）：
+
+```sh
+MINIMAX_CN_API_KEY=sk-...
+```
+
+## 验证
+
+```sh
+dsh --profile <name> --dump-config   # 能看到本包的插件行与 web 行
+pnpm test                            # 本仓单测（provider 契约 / 失败分支 / 配置守卫）
+```
+
+## 发布
+
+```sh
+pnpm publish        # 走 prepare 构建出 lib/ 再打包；scoped 包已配 publishConfig.access=public
+```
+
+## 开发
+
+```sh
+pnpm install
+pnpm test           # vitest run
+pnpm typecheck      # tsc --noEmit
+pnpm build          # tsdown → lib/
+```
+
+依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。

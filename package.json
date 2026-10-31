@@ -1,0 +1,59 @@
+{
+  "name": "@dreamariner/dsh-web-search-minimax",
+  "description": "DeepSeek Harness 的 MiniMax 联网搜索 provider（自挂载 bundle，可独立安装）：走 /v1/coding_plan/search，复用对话 LLM 密钥",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "prepare": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "web-search",
+    "minimax",
+    "search-provider"
+  ],
+  "author": "Jianan",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dreamariner/dsh-web-search-minimax.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": ">=3.18.5 <4.0.0-0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/schemastery": "3.18.5",
+    "@deepseek-ai/dsh-web": "0.2.1-rc.3",
+    "@types/node": "^24",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.9",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0-0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

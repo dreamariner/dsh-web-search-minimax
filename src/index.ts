@@ -34,7 +34,7 @@ export const PROVIDER_ID = 'minimax'
 export const API_HARD_CAP = 10
 
 /** 插件日志。路径来自配置（默认经 DSH_HOME 派生），**不可硬编码** —— 否则测试会写进
- *  真实运行时目录，污染 实际运行日志（tests/setup.ts 的隔离护栏就靠 DSH_HOME 生效）。 */
+ *  真实运行时目录，污染实际运行日志（tests/setup.ts 的隔离护栏就靠 DSH_HOME 生效）。 */
 const makeLog = (path: string) => (level: 'info' | 'warn', msg: string): void => {
   try {
     appendFileSync(path, `${new Date().toISOString()} [${level}] ${msg}\n`)

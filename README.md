@@ -53,8 +53,22 @@ MINIMAX_CN_API_KEY=sk-...
 
 ```sh
 dsh --profile <name> --dump-config   # 能看到本包的插件行与 web 行
-pnpm test                            # 本仓单测（provider 契约 / 失败分支 / 配置守卫）
+pnpm test                            # 本仓单测（provider 契约 / 失败分支 / 配置守卫 / 展示元数据）
 ```
+
+## 展示元数据
+
+插件管理器、bundle 详情与设置面板里的插件行会显示图标，取自 `package.json` 顶层 `icon` 字段：
+
+```json
+{ "icon": "./icon.svg" }
+```
+
+`icon.svg` 是 MiniMax 官方品牌标（品红 `#E2167E` 到珊瑚 `#FE603C` 渐变 + 白色波形）叠加右下角放大镜徽标，
+徽标外圈用同款渐变挖空，与波形分离，小尺寸下仍可辨认。
+
+DSH 的图标规则（相对路径、SVG/PNG/JPEG/WebP、≤256 KiB、须留在包目录内）由 `tests/display-metadata.spec.ts` 静态守卫，
+其中「`files` 白名单收录 `icon.svg`」一条最关键：漏了它，发布产物里就没有图标，插件行会静默退回默认占位图。
 
 ## 发布
 
@@ -81,7 +95,7 @@ pnpm dev:hmr --remove   # 注销
 ```
 
 - 注册写的是**本机 home patch** 里本包自己的 lib 路径，不触碰 root 里其它产品的行
-  （外部 DSH 定制仓 的 bootstrap 同样只管理它自己的行——两边互不干扰）。
+  （本机其他工具的脚本各自管理自己的行、互不干扰）。
 - 固有限制（DSH hmr 机制）：只认 change 事件（删除文件不触发 reload）、实例启动窗口内的
   改动被丢弃、macOS FSEvents 注册窗口。生产/分发场景不需要 hmr。
 

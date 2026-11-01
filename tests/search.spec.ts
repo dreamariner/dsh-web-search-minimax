@@ -57,7 +57,7 @@ describe('provider 契约', () => {
 
   it('缺密钥时 available() 为 false（不抛错，交由 seam 判定）', () => {
     // 用 .env 里不存在的变量名：resolveKey 会回落到读 ~/.dsh/.env，只删进程变量不够
-    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV' })
+    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' })
     expect(provider.available()).toBe(false)
   })
 
@@ -191,7 +191,7 @@ describe('失败分支（都带机器可读 code）', () => {
   it('缺密钥', async () => {
     // 注意：不能只删进程环境变量——resolveKey 会回落到读 ~/.dsh/.env，那里确实有
     // MINIMAX_CN_API_KEY。必须换一个 .env 里也不存在的变量名才会真的缺失。
-    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_AT_ALL' })
+    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST_AT_ALL' })
     expect(await codeOf(provider, okBody)).toBe('MINIMAX_SEARCH_KEY_MISSING')
   })
 
@@ -252,7 +252,7 @@ describe('配置', () => {
   })
 
   // 回归：logPath 一度硬编码 ~/.dsh/logs，而默认表达式在**模块加载时**求值 —— 早于
-  // tests/setup.ts 的 beforeAll 设 DSH_HOME，于是整轮测试的日志都写进了 真实的
+  // tests/setup.ts 的 beforeAll 设 DSH_HOME，于是整轮测试的日志都写进了真实的
   // 运行时目录。断言用「显式路径被尊重」而非「真实文件 mtime」：后者在实例运行时
   // 无法区分「测试写的」与「真机写的」，天生有歧义。
   it('显式配置的 logPath 被尊重（测试因此能写到临时目录）', () => {

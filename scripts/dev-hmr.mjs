@@ -7,8 +7,8 @@
 //
 // 机制：DSH 的 hmr 行住在**本机 home patch**（$DSH_HOME/cordis.patch.yml，机器本地产物，
 // 不进任何 git）。本脚本只往该行 config.root 数组里增删**本包自己的 lib 绝对路径**，
-// 不触碰 root 里的其它行（外部 DSH 定制仓 的 bootstrap 同样只管理它自己的行、保留他行——
-// 两边互不干扰）。变更 watch 根需重启实例一次生效；之后的 src 改动随 pnpm dev 重建即时热重载。
+// 不触碰 root 里的其它行（本机其他工具的脚本各自管理自己的行、互不干扰）。
+// 变更 watch 根需重启实例一次生效；之后的 src 改动随 pnpm dev 重建即时热重载。
 //
 // 固有限制（DSH hmr 机制）：只认 change 事件（删除文件不触发 reload）、实例启动窗口内的
 // 改动被丢弃、macOS FSEvents 注册窗口。生产/分发场景不需要 hmr。

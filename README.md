@@ -14,25 +14,37 @@
 
 ## 安装
 
+**方式一（推荐）：CLI 一条命令 = 装包 + 登记 bundle 名单，一步到位**
+
 ```sh
 dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax   # npm（发布后）
-# 本地开发态：
-pnpm add link:<本仓路径>/packages/dsh-web-search-minimax --dir <profile目录>
-# 从 git 安装：workspace 仓的 dsh CLI github: 形态装的是仓根壳（private、无
-# dsh.bundle，会被插件管理器跳过），要用 pnpm 的 path: 语法直装插件包子目录：
-pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search-minimax" --dir <profile目录>
 ```
 
-> **desktop profile** 不接受 `dsh plugin` 的 pnpm 转发（CLI 限制）：在该类 profile
-> 用 app 内 Plugin Manager 安装，或手动两步：在 profile 目录
-> `pnpm add @dreamariner/dsh-web-search-minimax`（本地开发态可用 `link:`），
-> 再把包名加进该 profile `package.json` 的 `dsh.profile.bundles`。
->
+**方式二：手动 pnpm 装**（desktop profile 不接受 CLI 的 pnpm 转发；git 子目录语法 CLI 不认时）
+
+⚠ 裸 `pnpm add` 只完成「装包」：DSH 的 profile 只认 `dsh.profile.bundles` 名单
+（loadProfileDirectory 不扫 dependencies），装完**必须把包名补进 profile
+`package.json` 的 `dsh.profile.bundles`**，插件才会挂载。自挂载 bundle 解决的是
+「名单里的包怎么挂载」，不解决「哪些包进名单」。
+
+```sh
+# ① 装包（三选一）：
+pnpm add @dreamariner/dsh-web-search-minimax --dir <profile目录>              # npm
+pnpm add link:<本仓路径>/packages/dsh-web-search-minimax --dir <profile目录>   # 本地开发态
+# git：workspace 仓的 dsh CLI github: 形态装的是仓根壳（无插件面），用 path: 直装子目录
+pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search-minimax" --dir <profile目录>
+
+# ② 登记：把 "@dreamariner/dsh-web-search-minimax" 加进 profile package.json 的
+#    dsh.profile.bundles 数组
+```
+
 > git 安装且 pnpm ≥ 10 时，需在 profile 的 `pnpm-workspace.yaml` 放行构建脚本
 > （`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`，pnpm 10 的
 > 键名是 `onlyBuiltDependencies`）。`lib/` 已随仓提交，放行前也能装上，放行是为了
 > prepare 能重建到最新源码。git 安装的键是**插件包名**：`dsh plugin add github:`
 > CLI 形态装的是仓根壳（无构建脚本也无插件面），不是推荐装法。
+>
+> desktop profile 也可以用 app 内 Plugin Manager（同样两步齐全）。
 
 ## 配置
 

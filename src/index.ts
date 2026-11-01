@@ -8,17 +8,20 @@
 //   · 独立安装：dsh plugin --profile <p> add @dreamariner/dsh-web-search-minimax。
 //
 // 依赖硬约束（改动前必读）：
-//   · 依赖策略（不变式）：peer（schemastery）必须外置——运行期由宿主拦截层供给
+//   · 依赖策略（不变式）：peer（schemastery、dsh-web）必须外置：运行期由宿主拦截层供给
 //     与 DSH 同一实例；其余依赖自带一份（tsdown deps 内联）。名单只写在 package.json。
-//   · 不跨包运行期导入 —— @deepseek-ai/dsh-web 只做 import type（编译期擦除）。运行期
-//     需要的一切（fetch、错误类型）用本地实现，否则 pnpm 隔离布局下解析不到该包。
+//   · 跨包运行期导入只限 peer 名单内的包：DSH 的解析器按 peerDependencies 判定，把
+//     peer 的导入拦截并路由到宿主自己的那份实例（app-boot 的 resolver）。所以
+//     @deepseek-ai/dsh-web 的运行期导入能拿到与宿主同一个 WebError 类（判类型的前提）。
+//   · 不在 peer 名单里的包不许运行期导入：那些用本地实现（fetch 等），否则 pnpm 隔离
+//     布局下解析不到。
 //
 // 接口契约见 DSH packages/web/web/src/types.ts:102-108（id / available / search 三个成员）。
 
 import { appendFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import type { WebSearchProvider, WebSearchRequest, WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
+import { WebError, type WebSearchProvider, type WebSearchRequest, type WebSearchResult, type WebSearchSource } from '@deepseek-ai/dsh-web'
 import { Config, KNOWN_KEYS, defaultLogPath, resolveConfig, type WebSearchMinimaxConfig } from './config.ts'
 
 export const name = 'dsh-web-search-minimax'
@@ -43,18 +46,14 @@ const makeLog = (path: string) => (level: 'info' | 'warn', msg: string): void =>
   }
 }
 
-/** 带机器可读 code 的错误。DSH 的 seam 不包装 provider 抛出的错误，原样上抛给工具层取 code。 */
-class SearchProviderError extends Error {
-  code: string
-
-  // 历史注记：本插件装载走编译产物（lib/index.js），无 strip-only 语法约束；
-  // 保留普通字段赋值写法只是风格延续。
-  constructor(message: string, code: string) {
-    super(message)
-    this.name = 'SearchProviderError'
-    this.code = code
-  }
-}
+/**
+ * 带机器可读 code 的错误。DSH 的 seam 不包装 provider 抛出的错误，原样上抛给工具层取 code。
+ *
+ * 必须是 WebError（它继承 HarnessError）：工具层只在 `error instanceof HarnessError` 时
+ * 才把 {name, code} 放进结构化错误元数据（core/tools 的 errorInfo）。抛普通 Error 的话，
+ * code 只活在本插件的边界上，模型看到的只有一句 message，路由层拿不到 code。
+ */
+const searchError = (message: string, code: string): WebError => new WebError(message, code)
 
 interface MiniMaxOrganic {
   title?: string
@@ -149,7 +148,7 @@ async function runSearch(
 ): Promise<WebSearchResult> {
   const key = resolveKey(cfg.searchKeyEnv)
   if (key === undefined) {
-    throw new SearchProviderError(
+    throw searchError(
       `[minimax] 未找到密钥环境变量 ${cfg.searchKeyEnv}（值应写在 ~/.dsh/.env）`,
       'MINIMAX_SEARCH_KEY_MISSING',
     )
@@ -171,23 +170,23 @@ async function runSearch(
       signal: composed,
     })
   } catch (e) {
-    throw new SearchProviderError(`[minimax] 搜索请求失败：${(e as Error).message}`, 'MINIMAX_SEARCH_TRANSPORT')
+    throw searchError(`[minimax] 搜索请求失败：${(e as Error).message}`, 'MINIMAX_SEARCH_TRANSPORT')
   }
 
   if (!res.ok) {
-    throw new SearchProviderError(`[minimax] 搜索返回 HTTP ${res.status}`, 'MINIMAX_SEARCH_HTTP')
+    throw searchError(`[minimax] 搜索返回 HTTP ${res.status}`, 'MINIMAX_SEARCH_HTTP')
   }
 
   let body: MiniMaxSearchResponse
   try {
     body = (await res.json()) as MiniMaxSearchResponse
   } catch {
-    throw new SearchProviderError('[minimax] 搜索返回非 JSON 响应', 'MINIMAX_SEARCH_BAD_RESPONSE')
+    throw searchError('[minimax] 搜索返回非 JSON 响应', 'MINIMAX_SEARCH_BAD_RESPONSE')
   }
 
   const code = body.base_resp?.status_code
   if (code !== undefined && code !== 0) {
-    throw new SearchProviderError(
+    throw searchError(
       `[minimax] 搜索被拒绝（${code}）：${body.base_resp?.status_msg ?? '未知原因'}`,
       'MINIMAX_SEARCH_REJECTED',
     )
@@ -195,7 +194,7 @@ async function runSearch(
 
   const sources = mapSources(body.organic ?? [])
   if (sources.length === 0) {
-    throw new SearchProviderError('[minimax] 搜索未返回任何可用来源（organic 为空或全部缺少 link）', 'MINIMAX_SEARCH_EMPTY')
+    throw searchError('[minimax] 搜索未返回任何可用来源（organic 为空或全部缺少 link）', 'MINIMAX_SEARCH_EMPTY')
   }
 
   // 只按接口硬上限预切，**不按 wanted 切**：切到 wanted 会让 DSH 的

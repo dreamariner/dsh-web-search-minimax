@@ -7,6 +7,7 @@
 - 实现 DSH 的 `WebSearchProvider` seam：`id / available / search` 三成员。
 - 走 MiniMax `POST {searchBaseUrl}/v1/coding_plan/search`，**复用对话的 LLM 密钥**，不为搜索单开账号。
 - 失败一律抛带机器可读 code 的错误（`MINIMAX_SEARCH_KEY_MISSING / _TRANSPORT / _HTTP / _REJECTED / _BAD_RESPONSE / _EMPTY`），不静默返回空结果。
+  错误抛的是接缝的 `WebError`（继承 `HarnessError`），code 会进工具结果的结构化错误元数据，路由层能直接按 code 分流。
 - MiniMax 单次最多 10 条且不支持分页：只按接口硬上限封顶并如实置 `truncated`，条数截断责任在 DSH 工具层的 `tool-web.searchMaxResults`。
 
 ## 安装
@@ -112,4 +113,8 @@ pnpm dev:hmr --remove   # 注销
 - 固有限制（DSH hmr 机制）：只认 change 事件（删除文件不触发 reload）、实例启动窗口内的
   改动被丢弃、macOS FSEvents 注册窗口。生产/分发场景不需要 hmr。
 
-依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。
+依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery、dsh-web）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。
+
+`@deepseek-ai/dsh-web` 必须在 peer 名单里：DSH 的模块解析器按 `peerDependencies` 判定，把 peer 的导入拦截并路由到宿主自己的那份实例。
+这条是「错误码能进工具层结构化元数据」的前提，工具层取 code 的判定是 `error instanceof HarnessError`，认的是**类实例身份**。
+跨包运行期导入只限 peer 名单内的包（`fetch` 等一律本地实现），否则 pnpm 隔离布局下解析不到。

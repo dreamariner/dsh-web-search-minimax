@@ -8,8 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { HarnessError } from '@deepseek-ai/dsh-llm'
+import { WebError } from '@deepseek-ai/dsh-web'
 import { apply, mapSources, resolveKey, PROVIDER_ID, API_HARD_CAP, name } from '../src/index.ts'
 import { Config, resolveConfig, defaultLogPath, KNOWN_KEYS } from '../src/config.ts'
+
+const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'))
 
 /** 捕获 apply 注册的 provider，并提供可控的 fetch。 */
 function mount(config: Record<string, unknown> = {}) {
@@ -221,6 +225,37 @@ describe('失败分支（都带机器可读 code）', () => {
     const { provider } = mount()
     ;(globalThis.fetch as any).mockRejectedValue(new TypeError('fetch failed'))
     await expect(provider.search({ query: 'x' })).rejects.toMatchObject({ code: 'MINIMAX_SEARCH_TRANSPORT' })
+  })
+})
+
+// 这组守的是「错误码能不能离开本插件」。工具层取 code 的方式是
+// `error instanceof HarnessError ? {name, code} : undefined`（core/tools 的 errorInfo），
+// 判的是**类实例身份**，不是字段在不在：抛普通 Error 时 code 字段照样在，但被判型
+// 判否，结构化错误元数据里就没有它，模型只看到一句 message。
+describe('错误码到达工具层的结构化元数据', () => {
+  /** 复刻工具层 core/tools/src/index.ts 的 errorInfo 判定。 */
+  const toolErrorInfo = (error: unknown): { name: string; code: string } | undefined =>
+    error instanceof HarnessError ? { name: error.name, code: error.code } : undefined
+
+  it('抛出的错误是宿主 HarnessError 实例', async () => {
+    const { provider } = mount()
+    respondWith({}, 500)
+    const error = await provider.search({ query: 'x' }).then(() => undefined, (e: unknown) => e)
+    expect(error).toBeInstanceOf(HarnessError)
+    // 同时是接缝自己的 WebError（官方 provider 用的也是它）
+    expect(error).toBeInstanceOf(WebError)
+  })
+
+  it('工具层的 errorInfo 能提取出 code（不再是 undefined）', async () => {
+    const { provider } = mount()
+    respondWith({}, 500)
+    const error = await provider.search({ query: 'x' }).then(() => undefined, (e: unknown) => e)
+    expect(toolErrorInfo(error)).toEqual({ name: 'WebError', code: 'MINIMAX_SEARCH_HTTP' })
+  })
+
+  it('dsh-web 声明为 peerDependency（宿主供给同一实例，否则判型必失败）', () => {
+    // 少了这条，运行期导入解析不到 → 插件静默失效；或解析到第二份 → instanceof 判否
+    expect(pkg.peerDependencies).toHaveProperty('@deepseek-ai/dsh-web')
   })
 })
 

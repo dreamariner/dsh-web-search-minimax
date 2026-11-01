@@ -71,4 +71,18 @@ pnpm typecheck      # tsc --noEmit
 pnpm build          # tsdown → lib/
 ```
 
+### 热重载开发循环（可选）
+
+```sh
+pnpm dev            # tsdown --watch：保存 → 重建 lib/
+pnpm dev:hmr        # 一次性：把本包 lib/ 注册进本机 DSH 的 hmr watch 根（$DSH_HOME/cordis.patch.yml）
+                    # 注册后**重启实例一次**生效，之后的改动即「保存 → 实例内热重载」（免重启、PID 不变）
+pnpm dev:hmr --remove   # 注销
+```
+
+- 注册写的是**本机 home patch** 里本包自己的 lib 路径，不触碰 root 里其它产品的行
+  （外部 DSH 定制仓 的 bootstrap 同样只管理它自己的行——两边互不干扰）。
+- 固有限制（DSH hmr 机制）：只认 change 事件（删除文件不触发 reload）、实例启动窗口内的
+  改动被丢弃、macOS FSEvents 注册窗口。生产/分发场景不需要 hmr。
+
 依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。

@@ -71,18 +71,34 @@ pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search
 | `searchTimeoutMs` | `30000` | 单次搜索超时 |
 | `logPath` | `$DSH_HOME/logs/dsh-web-search-minimax.log` | 插件日志 |
 
+**密钥首选在 DSH「设置 → 模型」里配置**：添加 MiniMax 模型提供商（如 `minimax-cn`，
+填 **MiniMax Coding Plan** 的 key）后，其 `apiKeyEnv` 指向的环境变量与插件的
+`searchKeyEnv` 默认值是**同一个**（国内版 `MINIMAX_CN_API_KEY`），搜索开箱即用，
+无需任何插件侧配置。
+
 MiniMax 分**国内版**与**国际版**，两区的域名和密钥互不通用，按所用 plan 二选一。
-密钥值放 `~/.dsh/.env`（红线：密钥不进任何仓库），默认变量名按 region：
+用国际版时两步：
+
+1. 「设置 → 模型」再加一个提供商，`apiKeyEnv` 填 `MINIMAX_GLOBAL_API_KEY`（key 用国际版的）；
+2. 给插件行加 `region: global`。在 profile 的 `cordis.patch.yml` 追加（同名行是整块
+   替换，`name` 必须带）：
+
+   ```yaml
+   - id: dsh-web-search-minimax
+     name: "@dreamariner/dsh-web-search-minimax"
+     config:
+       region: global
+   ```
+
+不经模型设置 UI、直接写 `~/.dsh/.env` 也可以（红线：密钥不进任何仓库）：
 
 ```sh
-# region: cn（国内版，默认）
-MINIMAX_CN_API_KEY=sk-...
-
-# region: global（国际版）—— 配置里设 region: global 后读这个变量名
-MINIMAX_GLOBAL_API_KEY=sk-...
+MINIMAX_CN_API_KEY=sk-...      # region: cn（默认）
+MINIMAX_GLOBAL_API_KEY=sk-...  # region: global
 ```
 
-> 密钥来自 **MiniMax Coding Plan**；对话用的 LLM 密钥与本插件无关，不要混用。
+> 密钥来自 **MiniMax Coding Plan**；对话 LLM 用哪个提供商与本插件无关——插件只认
+> `searchKeyEnv` 指向的那个环境变量。
 
 ## 验证
 

@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "MiniMax 联网搜索",
-    "description": "DSH 的 MiniMax 联网搜索 provider：走 MiniMax Coding Plan 搜索接口，需自行配置 MiniMax 密钥（国内版 / 国际版，region 切换），自挂载 bundle 独立安装。"
+    "description": "DSH 的 MiniMax 联网搜索 provider：走 MiniMax Coding Plan 搜索接口，密钥即 DSH「设置 → 模型」里 MiniMax 提供商所配的 API 密钥（国内 / 国际版，region 切换），自挂载 bundle 独立安装。"
   }
 }

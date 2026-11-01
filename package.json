@@ -7,7 +7,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
-    "dev:hmr": "pnpm -r dev:hmr",
+    "dev:hmr": "node scripts/dev-hmr.mjs",
     "prepare": "pnpm -r build",
     "test": "vitest run",
     "test:watch": "vitest",

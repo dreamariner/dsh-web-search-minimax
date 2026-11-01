@@ -15,16 +15,24 @@
 ## 安装
 
 ```sh
-dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax   # npm
-# 或从 git：
-dsh plugin --profile <name> add github:dreamariner/dsh-web-search-minimax
+dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax   # npm（发布后）
+# 本地开发态：
+pnpm add link:<本仓路径>/packages/dsh-web-search-minimax --dir <profile目录>
+# 从 git 安装：workspace 仓的 dsh CLI github: 形态装的是仓根壳（private、无
+# dsh.bundle，会被插件管理器跳过），要用 pnpm 的 path: 语法直装插件包子目录：
+pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search-minimax" --dir <profile目录>
 ```
 
-git 安装拉的是源码，pnpm 会在装后跑本包的 `prepare`（`tsdown`）构建 `lib/`；pnpm ≥10 需要在 profile 的 `pnpm-workspace.yaml` 里放行构建（`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`）。
-
-> ⚠ **desktop profile** 会拒绝 `dsh plugin` 的 pnpm 转发（CLI 限制）：在该类 profile 安装需手动两步——
-> 在 profile 目录 `pnpm add @dreamariner/dsh-web-search-minimax`（本地开发态可用 `link:<本仓路径>`），
+> **desktop profile** 不接受 `dsh plugin` 的 pnpm 转发（CLI 限制）：在该类 profile
+> 用 app 内 Plugin Manager 安装，或手动两步：在 profile 目录
+> `pnpm add @dreamariner/dsh-web-search-minimax`（本地开发态可用 `link:`），
 > 再把包名加进该 profile `package.json` 的 `dsh.profile.bundles`。
+>
+> git 安装且 pnpm ≥ 10 时，需在 profile 的 `pnpm-workspace.yaml` 放行构建脚本
+> （`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`，pnpm 10 的
+> 键名是 `onlyBuiltDependencies`）。`lib/` 已随仓提交，放行前也能装上，放行是为了
+> prepare 能重建到最新源码。git 安装的键是**插件包名**：`dsh plugin add github:`
+> CLI 形态装的是仓根壳（无构建脚本也无插件面），不是推荐装法。
 
 ## 配置
 

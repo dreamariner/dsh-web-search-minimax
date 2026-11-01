@@ -17,13 +17,15 @@
     "src",
     "locale",
     "cordis.patch.yml",
-    "icon.svg"
+    "icon.svg",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
     "dev:hmr": "node scripts/dev-hmr.mjs",
-    "prepare": "tsdown"
+    "prepare": "tsdown && node scripts/sync-pack-docs.mjs"
   },
   "keywords": [
     "dsh",

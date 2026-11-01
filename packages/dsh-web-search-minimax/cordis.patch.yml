@@ -17,7 +17,8 @@
 #   ③ **patch 行的 `name` 只是守卫**（不匹配就 skip 并 warn），不是设置 name 的途径。
 #      改已有行时**不要**写 name；`name` 只在 `- insert:` 里才有意义（它是新行的模块引用）。
 
-# 自建 web search provider：走 MiniMax，复用对话的 LLM 密钥。
+# 自建 web search provider：走 MiniMax Coding Plan 搜索接口，需自行配置 MiniMax 密钥
+#（region 切国内 / 国际，两区域名与密钥都不通用）。
 # 刻意不带 config 块：三个配置项都有默认值，且**刻意不提供 searchMaxResults**——
 # 条数由工具层 tool-web.searchMaxResults 决定（默认 8），插件侧再设同名旋钮会被它
 # 单向压住（配大不生效、配小才生效）。

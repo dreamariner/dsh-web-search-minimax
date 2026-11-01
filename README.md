@@ -2,12 +2,12 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 MiniMax 联网搜索 provider，以**自挂载 bundle**（官方「一包既是 bundle 又是 plugin」形态）发布，可用 `dsh plugin` 独立安装。
 
-本仓是 workspace 布局（照脚手架 [create-dsh-plugin](https://github.com/dreamariner/create-dsh-plugin) 的统一结构）：根壳承载测试与类型检查，插件包在 `packages/dsh-web-search-minimax/`（构建、发布、安装都以它为单位），后续可用 `add` 子命令追加更多插件，结构无需迁移。
+本仓是 workspace 布局（照脚手架 [create-dsh-plugin](https://github.com/dreamariner/create-dsh-plugin) 的统一结构）：根壳承载测试与类型检查，插件包在 `packages/dsh-web-search-minimax/`（构建、发布、安装都以它为单位），后续可用脚手架的 `add` 子命令追加更多插件（`npx @dreamariner/create-dsh-plugin add <包名> --type host|client|full`，在仓根执行），结构无需迁移。
 
 ## 功能
 
 - 实现 DSH 的 `WebSearchProvider` seam：`id / available / search` 三成员。
-- 走 MiniMax `POST {searchBaseUrl}/v1/coding_plan/search`，**复用对话的 LLM 密钥**，不为搜索单开账号。
+- 走 MiniMax Coding Plan 的搜索接口 `POST {基址}/v1/coding_plan/search`。**密钥需自行配置**（MiniMax Coding Plan 的 key，与对话 LLM 密钥无关），支持国内版 / 国际版（`region` 切换，两区的域名与密钥互不通用）。
 - 失败一律抛带机器可读 code 的错误（`MINIMAX_SEARCH_KEY_MISSING / _TRANSPORT / _HTTP / _REJECTED / _BAD_RESPONSE / _EMPTY`），不静默返回空结果。
   错误抛的是接缝的 `WebError`（继承 `HarnessError`），code 会进工具结果的结构化错误元数据，路由层能直接按 code 分流。
 - MiniMax 单次最多 10 条且不支持分页：只按接口硬上限封顶并如实置 `truncated`，条数截断责任在 DSH 工具层的 `tool-web.searchMaxResults`。
@@ -29,7 +29,7 @@ dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax   # npm（�
 
 ```sh
 # ① 装包（三选一）：
-pnpm add @dreamariner/dsh-web-search-minimax --dir <profile目录>              # npm
+pnpm add @dreamariner/dsh-web-search-minimax --dir <profile目录>              # npm（发布后）
 pnpm add link:<本仓路径>/packages/dsh-web-search-minimax --dir <profile目录>   # 本地开发态
 # git：workspace 仓的 dsh CLI github: 形态装的是仓根壳（无插件面），用 path: 直装子目录
 pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search-minimax" --dir <profile目录>
@@ -41,8 +41,12 @@ pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search
 > git 安装且 pnpm ≥ 10 时，需在 profile 的 `pnpm-workspace.yaml` 放行构建脚本
 > （`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`，pnpm 10 的
 > 键名是 `onlyBuiltDependencies`）。`lib/` 已随仓提交，放行前也能装上，放行是为了
-> prepare 能重建到最新源码。git 安装的键是**插件包名**：`dsh plugin add github:`
-> CLI 形态装的是仓根壳（无构建脚本也无插件面），不是推荐装法。
+> prepare 能重建到最新源码。放行的键按**实际装出来的包**走：上面三种形态装出的
+> 都是插件包，键是 `@dreamariner/dsh-web-search-minimax`。
+>
+> `dsh plugin add github:` 那种 CLI 形态装的是仓根壳 `dsh-web-search-minimax-workspace`：
+> 根壳没有 `dsh.bundle`，插件管理器会跳过它（profile 名单里也没有对应项），
+> **装了也不会挂载**，所以别用那种形态。
 >
 > desktop profile 也可以用 app 内 Plugin Manager（同样两步齐全）。
 
@@ -57,20 +61,28 @@ pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search
     fetchProvider: http
 ```
 
-插件自身配置（3+1 项，全有默认值，通常零配置即可用）：
+插件自身配置（全有默认值，通常只配 `region` 与密钥）：
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `searchBaseUrl` | `https://api.minimaxi.com` | 搜索接口基址 |
-| `searchKeyEnv` | `MINIMAX_CN_API_KEY` | **存密钥的环境变量名**（只存名字） |
+| `region` | `cn` | 发行区：`cn`（国内，`api.minimaxi.com`）\| `global`（国际，`api.minimax.io`）。决定域名与默认密钥变量名 |
+| `searchBaseUrl` | （空 = 按 region 派生） | 搜索接口基址；自部署网关 / 反代时显式覆盖 |
+| `searchKeyEnv` | （空 = 按 region 派生） | **存密钥的环境变量名**（只存名字）；自拟变量名时显式覆盖 |
 | `searchTimeoutMs` | `30000` | 单次搜索超时 |
 | `logPath` | `$DSH_HOME/logs/dsh-web-search-minimax.log` | 插件日志 |
 
-密钥值放 `~/.dsh/.env`（红线：密钥不进任何仓库）：
+MiniMax 分**国内版**与**国际版**，两区的域名和密钥互不通用，按所用 plan 二选一。
+密钥值放 `~/.dsh/.env`（红线：密钥不进任何仓库），默认变量名按 region：
 
 ```sh
+# region: cn（国内版，默认）
 MINIMAX_CN_API_KEY=sk-...
+
+# region: global（国际版）—— 配置里设 region: global 后读这个变量名
+MINIMAX_GLOBAL_API_KEY=sk-...
 ```
+
+> 密钥来自 **MiniMax Coding Plan**；对话用的 LLM 密钥与本插件无关，不要混用。
 
 ## 验证
 

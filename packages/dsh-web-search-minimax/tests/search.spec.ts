@@ -11,7 +11,14 @@ import { join } from 'node:path'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { WebError } from '@deepseek-ai/dsh-web'
 import { apply, mapSources, resolveKey, PROVIDER_ID, API_HARD_CAP, name } from '../src/index.ts'
-import { Config, resolveConfig, defaultLogPath, KNOWN_KEYS } from '../src/config.ts'
+import {
+  Config,
+  effectiveSearchBaseUrl,
+  effectiveSearchKeyEnv,
+  KNOWN_KEYS,
+  defaultLogPath,
+  resolveConfig,
+} from '../src/config.ts'
 
 // workspace 布局：本 spec 在根 vitest 下跑（cwd = 仓根），本包在 packages/<id>/
 const PKG = join(process.cwd(), 'packages', 'dsh-web-search-minimax')
@@ -265,8 +272,11 @@ describe('配置', () => {
   it('默认值能通过自身校验（回归：step 约束会让加载期就抛错）', () => {
     expect(() => resolveConfig(Config, {}, name)).not.toThrow()
     const c = resolveConfig(Config, {}, name)
-    expect(c.searchBaseUrl).toBe('https://api.minimaxi.com')
-    expect(c.searchKeyEnv).toBe('MINIMAX_CN_API_KEY') // 与对话同一个密钥
+    expect(c.region).toBe('cn')
+    expect(c.searchBaseUrl).toBe('') // 空串哨兵 = 按 region 派生
+    expect(c.searchKeyEnv).toBe('')
+    expect(effectiveSearchBaseUrl(c)).toBe('https://api.minimaxi.com')
+    expect(effectiveSearchKeyEnv(c)).toBe('MINIMAX_CN_API_KEY')
     expect(Object.keys(c)).not.toContain('searchMaxResults') // 条数归工具层，不在插件侧暴露
   })
 
@@ -281,6 +291,22 @@ describe('配置', () => {
     expect(() => apply({ web: { registerSearchProvider: () => {} } } as any, { apiKey: 'x' } as any))
       .toThrow(/未知配置键：apiKey/)
     expect(KNOWN_KEYS).toContain('searchKeyEnv')
+  })
+
+  it('region: global → 派生国际版基址与密钥变量名（两区域名和密钥都不通用）', () => {
+    const g = resolveConfig(Config, { region: 'global' }, name)
+    expect(effectiveSearchBaseUrl(g)).toBe('https://api.minimax.io')
+    expect(effectiveSearchKeyEnv(g)).toBe('MINIMAX_GLOBAL_API_KEY')
+  })
+
+  it('显式覆盖优先于 region 派生（自部署网关 / 自拟变量名）', () => {
+    const o = resolveConfig(Config, { region: 'global', searchBaseUrl: 'https://gw.example', searchKeyEnv: 'MY_KEY' }, name)
+    expect(effectiveSearchBaseUrl(o)).toBe('https://gw.example')
+    expect(effectiveSearchKeyEnv(o)).toBe('MY_KEY')
+  })
+
+  it('非法 region 被配置校验拦下（带路径报错，而不是运行期才炸）', () => {
+    expect(() => resolveConfig(Config, { region: 'cn-global' }, name)).toThrow(/region/)
   })
 
   it('resolveKey 从进程环境取值', () => {

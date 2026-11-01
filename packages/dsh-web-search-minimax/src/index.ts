@@ -1,6 +1,7 @@
 // dsh-web-search-minimax：用 MiniMax 的联网搜索实现 DSH 的 WebSearchProvider
 //
-// 设计：直调 MiniMax API（复用已配置的 MiniMax 密钥，与对话同一个），不自起进程、
+// 设计：直调 MiniMax Coding Plan 的搜索 API（密钥需用户自行配置，国内 / 国际版按
+// region 切换），不自起进程、
 // 不落密钥副本——密钥只从 ~/.dsh/.env（或进程环境）按变量名读取。
 //
 // 本插件是**完全独立**的发行单元：
@@ -22,7 +23,15 @@ import { appendFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { WebError, type WebSearchProvider, type WebSearchRequest, type WebSearchResult, type WebSearchSource } from '@deepseek-ai/dsh-web'
-import { Config, KNOWN_KEYS, defaultLogPath, resolveConfig, type WebSearchMinimaxConfig } from './config.ts'
+import {
+  Config,
+  KNOWN_KEYS,
+  defaultLogPath,
+  effectiveSearchBaseUrl,
+  effectiveSearchKeyEnv,
+  resolveConfig,
+  type WebSearchMinimaxConfig,
+} from './config.ts'
 
 export const name = 'dsh-web-search-minimax'
 // web 是注册入口（ctx.web.registerSearchProvider）。inject 是白名单，漏写则 ctx.web 为
@@ -121,8 +130,8 @@ export function apply(ctx: any, rawConfig?: Partial<WebSearchMinimaxConfig> | nu
   const cfg: WebSearchMinimaxConfig = resolveConfig(Config, config, name)
   const logPath = cfg.logPath !== '' ? cfg.logPath : defaultLogPath()
   const log = makeLog(logPath)
-  // 只打变量名与基址，绝不打密钥值
-  log('info', `init： ${JSON.stringify({ id: PROVIDER_ID, searchBaseUrl: cfg.searchBaseUrl, searchKeyEnv: cfg.searchKeyEnv, available: resolveKey(cfg.searchKeyEnv) !== undefined })}`)
+  // 只打变量名与基址（生效值），绝不打密钥值
+  log('info', `init： ${JSON.stringify({ id: PROVIDER_ID, region: cfg.region, searchBaseUrl: effectiveSearchBaseUrl(cfg), searchKeyEnv: effectiveSearchKeyEnv(cfg), available: resolveKey(effectiveSearchKeyEnv(cfg)) !== undefined })}`)
 
   const web = ctx.web
   if (web === undefined || typeof web.registerSearchProvider !== 'function') {
@@ -132,7 +141,7 @@ export function apply(ctx: any, rawConfig?: Partial<WebSearchMinimaxConfig> | nu
   const provider: WebSearchProvider = {
     id: PROVIDER_ID,
     // 接口注释明写：廉价本地可用性检查，不得发网络请求。所以只看密钥在不在。
-    available: () => resolveKey(cfg.searchKeyEnv) !== undefined,
+    available: () => resolveKey(effectiveSearchKeyEnv(cfg)) !== undefined,
     search: (request: WebSearchRequest, signal?: AbortSignal) => runSearch(cfg, request, signal, log),
   }
 
@@ -146,10 +155,11 @@ async function runSearch(
   signal: AbortSignal | undefined,
   log: (level: 'info' | 'warn', msg: string) => void,
 ): Promise<WebSearchResult> {
-  const key = resolveKey(cfg.searchKeyEnv)
+  const keyEnv = effectiveSearchKeyEnv(cfg)
+  const key = resolveKey(keyEnv)
   if (key === undefined) {
     throw searchError(
-      `[minimax] 未找到密钥环境变量 ${cfg.searchKeyEnv}（值应写在 ~/.dsh/.env）`,
+      `[minimax] 未找到密钥环境变量 ${keyEnv}（region=${cfg.region}，值应写在 ~/.dsh/.env）`,
       'MINIMAX_SEARCH_KEY_MISSING',
     )
   }
@@ -163,7 +173,7 @@ async function runSearch(
   let res: Response
   try {
     // 注意 body 字段是 q，不是 query（用 query 会得到 2013 invalid params）
-    res = await fetch(`${cfg.searchBaseUrl}/v1/coding_plan/search`, {
+    res = await fetch(`${effectiveSearchBaseUrl(cfg)}/v1/coding_plan/search`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
       body: JSON.stringify({ q: request.query }),

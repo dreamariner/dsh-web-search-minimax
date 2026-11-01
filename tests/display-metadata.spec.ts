@@ -15,7 +15,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
 
 // workspace 布局：本 spec 在根 vitest 下跑（cwd = 仓根），本包在 packages/<id>/
-const ROOT = join(process.cwd(), 'packages', 'dsh-web-search-minimax')
+const ROOT = process.cwd()
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
 
 /** DSH 的上限：iconOf() 里 MAX_ICON_BYTES = 256 * 1024。 */

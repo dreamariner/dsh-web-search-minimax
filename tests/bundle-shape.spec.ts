@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // workspace 布局：本 spec 在根 vitest 下跑（cwd = 仓根），本包在 packages/<id>/
-const ROOT = join(process.cwd(), 'packages', 'dsh-web-search-minimax')
+const ROOT = process.cwd()
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
 const NAME = '@dreamariner/dsh-web-search-minimax'
 const ROW_ID = 'dsh-web-search-minimax'

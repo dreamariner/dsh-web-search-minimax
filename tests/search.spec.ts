@@ -21,7 +21,7 @@ import {
 } from '../src/config.ts'
 
 // workspace 布局：本 spec 在根 vitest 下跑（cwd = 仓根），本包在 packages/<id>/
-const PKG = join(process.cwd(), 'packages', 'dsh-web-search-minimax')
+const PKG = process.cwd()
 const pkg = JSON.parse(readFileSync(join(PKG, 'package.json'), 'utf8'))
 
 /** 捕获 apply 注册的 provider，并提供可控的 fetch。 */

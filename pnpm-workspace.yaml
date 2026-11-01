@@ -1,4 +1,0 @@
-packages:
-  # 全部插件包（packages/<id>/）。workspace 布局照脚手架 dreamariner/create-dsh-plugin
-  # 的统一结构：根壳承载测试与类型检查，插件包独立构建、独立发布，后续可继续 add。
-  - packages/*

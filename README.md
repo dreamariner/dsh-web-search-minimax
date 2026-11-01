@@ -2,7 +2,7 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 MiniMax 联网搜索 provider，以**自挂载 bundle**（官方「一包既是 bundle 又是 plugin」形态）发布，可用 `dsh plugin` 独立安装。
 
-本仓是 workspace 布局（照脚手架 [create-dsh-plugin](https://github.com/dreamariner/create-dsh-plugin) 的统一结构）：根壳承载测试与类型检查，插件包在 `packages/dsh-web-search-minimax/`（构建、发布、安装都以它为单位），后续可用脚手架的 `add` 子命令追加更多插件（`npx @dreamariner/create-dsh-plugin add <包名> --type host|client|full`，在仓根执行），结构无需迁移。
+本仓是**单包布局**（脚手架 [create-dsh-plugin](https://github.com/dreamariner/create-dsh-plugin) 的 host 形态）：根即插件包，构建、发布、安装都以本仓为单位。绝大多数插件是单仓单插件，单包让 npm / `dsh plugin add github:` / 手动 pnpm 三条安装路一步到位。
 
 ## 功能
 
@@ -30,9 +30,8 @@ dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax   # npm（�
 ```sh
 # ① 装包（三选一）：
 pnpm add @dreamariner/dsh-web-search-minimax --dir <profile目录>              # npm（发布后）
-pnpm add link:<本仓路径>/packages/dsh-web-search-minimax --dir <profile目录>   # 本地开发态
-# git：workspace 仓的 dsh CLI github: 形态装的是仓根壳（无插件面），用 path: 直装子目录
-pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search-minimax" --dir <profile目录>
+pnpm add link:<本仓路径> --dir <profile目录>   # 本地开发态（单包仓：link 仓根即可）
+pnpm add github:dreamariner/dsh-web-search-minimax --dir <profile目录>
 
 # ② 登记：把 "@dreamariner/dsh-web-search-minimax" 加进 profile package.json 的
 #    dsh.profile.bundles 数组
@@ -43,11 +42,7 @@ pnpm add "github:dreamariner/dsh-web-search-minimax#path:packages/dsh-web-search
 > 键名是 `onlyBuiltDependencies`）。`lib/` 已随仓提交，放行前也能装上，放行是为了
 > prepare 能重建到最新源码。放行的键按**实际装出来的包**走：上面三种形态装出的
 > 都是插件包，键是 `@dreamariner/dsh-web-search-minimax`。
->
-> `dsh plugin add github:` 那种 CLI 形态装的是仓根壳 `dsh-web-search-minimax-workspace`：
-> 根壳没有 `dsh.bundle`，插件管理器会跳过它（profile 名单里也没有对应项），
-> **装了也不会挂载**，所以别用那种形态。
->
+本仓是单包布局，`dsh plugin add github:` 的 CLI 形态装的就是插件包本身，一步到位。
 > desktop profile 也可以用 app 内 Plugin Manager（同样两步齐全）。
 
 ## 配置
@@ -137,32 +132,32 @@ DSH 的图标规则（相对路径、SVG/PNG/JPEG/WebP、≤256 KiB、须留在�
 ## 发布
 
 ```sh
-pnpm --filter @dreamariner/dsh-web-search-minimax publish
+pnpm publish
 # 走 prepare 构建出 lib/ 再打包；scoped 包已配 publishConfig.access=public
 ```
 
 ## 开发
 
-以下命令都在仓根执行（根壳按 workspace 递归转发，add 新插件后无需改）：
+以下命令都在仓根执行：
 
 ```sh
 pnpm install
-pnpm test           # vitest run（根配置通配 packages/*/tests/）
-pnpm typecheck      # tsc --noEmit（根 tsconfig 通配全部插件包 src 与 tests）
-pnpm build          # pnpm -r build → packages/<id>/lib/
+pnpm test           # vitest run（tests/）
+pnpm typecheck      # tsc --noEmit（src 与 tests）
+pnpm build          # tsdown → lib/
 ```
 
 ### 热重载开发循环（可选）
 
 ```sh
 pnpm dev            # tsdown --watch：保存 → 重建 lib/
-pnpm dev:hmr        # 项目级接线：把全部插件包的 lib/ 注册进本机 DSH 的 hmr watch 根（$DSH_HOME/cordis.patch.yml）
+pnpm dev:hmr        # 把本包 lib/ 注册进本机 DSH 的 hmr watch 根（$DSH_HOME/cordis.patch.yml）
                     # 注册后**重启实例一次**生效，之后的改动即「保存 → 实例内热重载」（免重启、PID 不变）
 pnpm dev:hmr --remove   # 注销本仓全部注册
 ```
 
-- 注册写的是**本机 home patch** 里本仓各插件包的 lib 路径，不触碰 root 里其它产品的行
-  （本机其他工具的脚本各自管理自己的行、互不干扰）；add 新插件后重跑一次即可。
+- 注册写的是**本机 home patch** 里本包 lib 的路径，不触碰 root 里其它产品的行
+  （本机其他工具的脚本各自管理自己的行、互不干扰）。
 - 固有限制（DSH hmr 机制）：只认 change 事件（删除文件不触发 reload）、实例启动窗口内的
   改动被丢弃、macOS FSEvents 注册窗口。生产/分发场景不需要 hmr。
 

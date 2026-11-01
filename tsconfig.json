@@ -1,5 +1,5 @@
 {
-  // workspace 根 tsconfig：覆盖全部插件包源码与测试（照脚手架根配置）。
+  // 插件包 tsconfig（single 布局：根即插件包）。
   "compilerOptions": {
     "target": "es2023",
     "module": "esnext",
@@ -10,10 +10,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": [
-    "packages/*/src/**/*.ts",
-    "packages/*/src/**/*.tsx",
-    "packages/*/tests/**/*.ts",
-    "packages/*/tests/**/*.tsx"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx"]
 }

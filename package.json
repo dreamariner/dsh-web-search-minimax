@@ -1,21 +1,73 @@
 {
-  "name": "dsh-web-search-minimax-workspace",
-  "private": true,
+  "name": "@dreamariner/dsh-web-search-minimax",
+  "description": "DeepSeek Harness 的 MiniMax 联网搜索 provider：走 MiniMax Coding Plan 搜索接口，密钥与 DSH 模型配置中的 MiniMax 提供商共用（国内 / 国际版 region 切换）",
   "version": "0.1.0",
   "type": "module",
-  "packageManager": "pnpm@11.7.0",
+  "main": "./lib/index.js",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./lib/index.js",
+    "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "locale",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "build": "pnpm -r build",
-    "dev": "pnpm -r --parallel dev",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "dev:hmr": "node scripts/dev-hmr.mjs",
-    "prepare": "pnpm -r build",
+    "prepare": "tsdown",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "web-search",
+    "minimax",
+    "search-provider"
+  ],
+  "author": "Jianan",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dreamariner/dsh-web-search-minimax.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": ">=3.18.5 <4.0.0-0",
+    "@deepseek-ai/dsh-web": ">=0.2.1-rc.3 <0.3.0-0"
+  },
   "devDependencies": {
+    "@deepseek-ai/schemastery": "3.18.5",
+    "@deepseek-ai/dsh-web": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.3",
     "@types/node": "^24",
+    "js-yaml": "^4.1.0",
+    "tsdown": "^0.22.2",
     "typescript": "^5.9",
     "vitest": "^5.0.3"
-  }
+  },
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0-0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "packageManager": "pnpm@11.7.0"
 }

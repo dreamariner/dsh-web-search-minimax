@@ -2,6 +2,8 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 MiniMax 联网搜索 provider，以**自挂载 bundle**（官方「一包既是 bundle 又是 plugin」形态）发布，可用 `dsh plugin` 独立安装。
 
+本仓是 workspace 布局（照脚手架 [create-dsh-plugin](https://github.com/dreamariner/create-dsh-plugin) 的统一结构）：根壳承载测试与类型检查，插件包在 `packages/dsh-web-search-minimax/`（构建、发布、安装都以它为单位），后续可用 `add` 子命令追加更多插件，结构无需迁移。
+
 ## 功能
 
 - 实现 DSH 的 `WebSearchProvider` seam：`id / available / search` 三成员。
@@ -87,16 +89,19 @@ DSH 的图标规则（相对路径、SVG/PNG/JPEG/WebP、≤256 KiB、须留在�
 ## 发布
 
 ```sh
-pnpm publish        # 走 prepare 构建出 lib/ 再打包；scoped 包已配 publishConfig.access=public
+pnpm --filter @dreamariner/dsh-web-search-minimax publish
+# 走 prepare 构建出 lib/ 再打包；scoped 包已配 publishConfig.access=public
 ```
 
 ## 开发
 
+以下命令都在仓根执行（根壳按 workspace 递归转发，add 新插件后无需改）：
+
 ```sh
 pnpm install
-pnpm test           # vitest run
-pnpm typecheck      # tsc --noEmit
-pnpm build          # tsdown → lib/
+pnpm test           # vitest run（根配置通配 packages/*/tests/）
+pnpm typecheck      # tsc --noEmit（根 tsconfig 通配全部插件包 src 与 tests）
+pnpm build          # pnpm -r build → packages/<id>/lib/
 ```
 
 ### 热重载开发循环（可选）

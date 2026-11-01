@@ -1,4 +1,5 @@
 {
+  // workspace 根 tsconfig：覆盖全部插件包源码与测试（照脚手架根配置）。
   "compilerOptions": {
     "target": "es2023",
     "module": "esnext",
@@ -7,13 +8,12 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
   "include": [
-    "src/**/*.ts",
-    "tests/**/*.ts",
-    "scripts/**/*.mjs"
+    "packages/*/src/**/*.ts",
+    "packages/*/src/**/*.tsx",
+    "packages/*/tests/**/*.ts",
+    "packages/*/tests/**/*.tsx"
   ]
 }

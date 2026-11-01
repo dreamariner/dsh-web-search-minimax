@@ -14,7 +14,8 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const ROOT = process.cwd()
+// workspace 布局：本 spec 在根 vitest 下跑（cwd = 仓根），本包在 packages/<id>/
+const ROOT = join(process.cwd(), 'packages', 'dsh-web-search-minimax')
 const svg = readFileSync(join(ROOT, 'icon.svg'), 'utf8')
 
 /** 字母「M」的锁定路径（用户指定，逐字不可改）。 */

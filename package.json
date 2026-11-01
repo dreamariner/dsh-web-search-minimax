@@ -1,71 +1,21 @@
 {
-  "name": "@dreamariner/dsh-web-search-minimax",
-  "description": "DeepSeek Harness 的 MiniMax 联网搜索 provider（自挂载 bundle，可独立安装）：走 /v1/coding_plan/search，复用对话 LLM 密钥",
+  "name": "@dreamariner/dsh-web-search-minimax-workspace",
+  "private": true,
   "version": "0.1.0",
   "type": "module",
-  "main": "./lib/index.js",
-  "icon": "./icon.svg",
-  "exports": {
-    ".": "./lib/index.js",
-    "./src/*": "./src/*",
-    "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg",
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "lib",
-    "src",
-    "locale",
-    "cordis.patch.yml",
-    "icon.svg"
-  ],
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "dev:hmr": "node scripts/dev-hmr.mjs",
-    "prepare": "tsdown",
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "dev:hmr": "pnpm -r dev:hmr",
+    "prepare": "pnpm -r build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "test:watch": "vitest"
-  },
-  "keywords": [
-    "dsh",
-    "deepseek-harness",
-    "cordis",
-    "web-search",
-    "minimax",
-    "search-provider"
-  ],
-  "author": "Jianan",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/dreamariner/dsh-web-search-minimax.git"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "peerDependencies": {
-    "@deepseek-ai/schemastery": ">=3.18.5 <4.0.0-0",
-    "@deepseek-ai/dsh-web": ">=0.2.1-rc.3 <0.3.0-0"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
-    "@deepseek-ai/schemastery": "3.18.5",
-    "@deepseek-ai/dsh-web": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-llm": "0.2.1-rc.3",
     "@types/node": "^24",
-    "js-yaml": "^4.1.0",
-    "tsdown": "^0.22.2",
     "typescript": "^5.9",
     "vitest": "^5.0.3"
-  },
-  "engines": {
-    "dsh": ">=0.2.1-rc.3 <0.3.0-0"
-  },
-  "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    }
-  },
-  "packageManager": "pnpm@11.7.0"
+  }
 }

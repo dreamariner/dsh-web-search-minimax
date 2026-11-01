@@ -13,7 +13,9 @@ import { WebError } from '@deepseek-ai/dsh-web'
 import { apply, mapSources, resolveKey, PROVIDER_ID, API_HARD_CAP, name } from '../src/index.ts'
 import { Config, resolveConfig, defaultLogPath, KNOWN_KEYS } from '../src/config.ts'
 
-const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'))
+// workspace 布局：本 spec 在根 vitest 下跑（cwd = 仓根），本包在 packages/<id>/
+const PKG = join(process.cwd(), 'packages', 'dsh-web-search-minimax')
+const pkg = JSON.parse(readFileSync(join(PKG, 'package.json'), 'utf8'))
 
 /** 捕获 apply 注册的 provider，并提供可控的 fetch。 */
 function mount(config: Record<string, unknown> = {}) {

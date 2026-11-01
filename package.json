@@ -8,11 +8,14 @@
   "exports": {
     ".": "./lib/index.js",
     "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
     "src",
+    "locale",
     "cordis.patch.yml",
     "icon.svg"
   ],
@@ -22,7 +25,8 @@
     "dev:hmr": "node scripts/dev-hmr.mjs",
     "prepare": "tsdown",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:watch": "vitest"
   },
   "keywords": [
     "dsh",
@@ -60,5 +64,6 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
-  }
+  },
+  "packageManager": "pnpm@11.7.0"
 }

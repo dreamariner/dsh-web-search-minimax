@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "MiniMax Web Search",
+    "description": "MiniMax web search provider for DeepSeek Harness: reuses the conversation LLM key and installs as a self-mounting bundle."
+  }
+}

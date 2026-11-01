@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "MiniMax 联网搜索",
+    "description": "DSH 的 MiniMax 联网搜索 provider：复用对话 LLM 密钥，自挂载 bundle 独立安装。"
+  }
+}

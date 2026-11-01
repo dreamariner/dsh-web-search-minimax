@@ -1,11 +1,11 @@
-// dsh-web-search-minimax 配置（issue 004）
-// 校验语义与 同代 DSH 插件 一致：默认值填充 + 带路径的类型报错。
+// dsh-web-search-minimax 配置
+// 校验语义：默认值填充 + 带路径的类型报错。
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import z from '@deepseek-ai/schemastery'
 
-/** 与 同代 DSH 插件 同款：优先读 DSH_HOME，测试隔离靠它把 HOME 指向临时目录。 */
+/** 优先读 DSH_HOME，测试隔离靠它把 HOME 指向临时目录。 */
 const dshHome = (): string => process.env.DSH_HOME || join(homedir(), '.dsh')
 
 export interface WebSearchMinimaxConfig {
@@ -16,7 +16,7 @@ export interface WebSearchMinimaxConfig {
   /** 单次搜索的请求超时（工具侧另有 60s 预算，这里留出余量） */
   searchTimeoutMs: number
   // 刻意不提供「来源条数」配置：条数由工具层 tool-web.searchMaxResults 决定（默认 8），
-  // provider 侧再设一个同名旋钮只会与它争主权且永远不生效（issue 004 收尾）。
+  // provider 侧再设一个同名旋钮只会与它争主权且永远不生效。
   /**
    * 插件日志落盘路径；空串 = 在 apply() 时按 DSH_HOME 惰性派生。
    * 刻意不做成 schema 默认值：默认表达式在**模块加载时**求值，而测试隔离护栏是在
@@ -30,7 +30,7 @@ export const Config: z<WebSearchMinimaxConfig> = z.object({
   searchBaseUrl: z.string().default('https://api.minimaxi.com'),
   searchKeyEnv: z.string().default('MINIMAX_CN_API_KEY'),
   // 刻意不加 step()：默认值若不是任何固定步长的倍数，配置校验会在插件加载期就抛错，
-  // 而 loader 静默吞掉——症状与排查代价和 issue 003 踩的坑完全一样。
+  // 而 loader 静默吞掉——加载期就炸的配置错误最难排查，宁可不要这个约束。
   searchTimeoutMs: z.number().min(1000).default(30_000),
   logPath: z.string().default(''),
 })

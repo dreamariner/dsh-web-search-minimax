@@ -1,4 +1,4 @@
-// dsh-web-search-minimax :: 全局测试隔离护栏（自 外部 DSH 定制仓 根 tests/setup.ts 摘出本仓所需的两条）
+// dsh-web-search-minimax :: 全局测试隔离护栏
 //  1) DSH_HOME 指向本次运行的临时目录 —— config.ts 的 dshHome() 与 resolveKey() 回落路径
 //     因此永远落在临时目录，测试既读不到真实密钥、也不会写进真实运行时目录。
 //  2) 密钥类环境变量清零 —— resolveKey() 先读 process.env 再读 ~/.dsh/.env；在 DSH 会话内

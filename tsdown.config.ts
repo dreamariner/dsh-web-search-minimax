@@ -2,9 +2,9 @@ import { defineConfig } from 'tsdown'
 import { fileURLToPath } from 'node:url'
 import { hostDeps, readManifest } from './scripts/lib/manifest-deps.mjs'
 
-// host 半边构建（issue 007 D4）：dev 与安装/发布都跑本产物（issue 020 阶段一）。
+// host 半边构建：dev 与安装/发布都跑本产物（lib/index.js 是装载入口）。
 //
-// 依赖策略（issue 020 · ③-6 不变式 I1/I2）：peer 必须外置——运行期由宿主拦截层供给与
+// 依赖策略（不变式）：peer 必须外置——运行期由宿主拦截层供给与
 // DSH 同一实例；其余依赖自带一份（内联）。名单只写在 package.json 一处。
 const manifest = readManifest(fileURLToPath(new URL('.', import.meta.url)))
 

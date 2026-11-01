@@ -1,6 +1,6 @@
 # @dreamariner/dsh-web-search-minimax
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 MiniMax 联网搜索 provider，以**自挂载 bundle**（官方「一包既是 bundle 又是 plugin」形态）发布，可用 `dsh plugin` 独立安装。自 外部 DSH 定制仓 拆出（issue 028），与人格/记忆体系零耦合。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 MiniMax 联网搜索 provider，以**自挂载 bundle**（官方「一包既是 bundle 又是 plugin」形态）发布，可用 `dsh plugin` 独立安装。
 
 ## 功能
 

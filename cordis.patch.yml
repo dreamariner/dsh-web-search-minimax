@@ -1,4 +1,4 @@
-# @dreamariner/dsh-web-search-minimax —— 自挂载 bundle（issue 021 bundle 化；issue 028 拆仓独立发行）
+# @dreamariner/dsh-web-search-minimax —— 自挂载 bundle
 #
 # 本包**同时扮演两个角色**（官方模板同款形态，见 DSH checkout
 # packages/preset/agent-preset/skills/cordis-plugin-development/templates/decoration/）：
@@ -9,7 +9,7 @@
 # ⚠ 三条写法约束（都踩过或查过，改之前先读）：
 #   ① **新增行必须放进 `- insert:`**。顶层 `- id: X` 是给「已存在的行」打补丁；bundle 里
 #      没有这个 id 时它是**静默空操作**——插件被跳过，日志里连 warn 都没有
-#      （vendor/include/src/index.ts 的 applyEntryPatches：id 不存在只 warn 后 continue）。
+#      （DSH 的 applyEntryPatches：id 不存在只 warn 后 continue）。
 #   ② **同名行是整块替换，不是深合并**（`target[key] = value`）。所以 `web` 行必须把
 #      config **写全**——base bundle 的 web 行本来是
 #      `{searchProvider: deepseek-official, fetchProvider: http}`，只写 searchProvider 会把
@@ -17,10 +17,10 @@
 #   ③ **patch 行的 `name` 只是守卫**（不匹配就 skip 并 warn），不是设置 name 的途径。
 #      改已有行时**不要**写 name；`name` 只在 `- insert:` 里才有意义（它是新行的模块引用）。
 
-# 自建 web search provider（issue 004）：走 MiniMax，复用对话的 LLM 密钥。
+# 自建 web search provider：走 MiniMax，复用对话的 LLM 密钥。
 # 刻意不带 config 块：三个配置项都有默认值，且**刻意不提供 searchMaxResults**——
 # 条数由工具层 tool-web.searchMaxResults 决定（默认 8），插件侧再设同名旋钮会被它
-# 单向压住（配大不生效、配小才生效），见 issue 004 收尾。
+# 单向压住（配大不生效、配小才生效）。
 # 另：留一个空的 `config:` 会让 YAML 解析成 null，没必要。
 - insert:
     - id: dsh-web-search-minimax
@@ -29,9 +29,8 @@
 # ⚠ searchProvider 必须显式配：DSH 的选择语义是「未配置 id 且恰好一个可用 provider 才自动选」。
 # 注册了自建 provider 后若留空，会与内置 web-search-deepseek 并存而撞
 # WEB_PROVIDER_AMBIGUOUS——症状是搜索彻底不可用且原因难猜。
-# 这行**随本插件走**（不留在 聚合组合包 聚合包，也不留在本插件的旧 外部 DSH 定制仓 内嵌形态）：
-# 配置归属跟着提供能力的插件——
-# 留在聚合包里的话，只装聚合包的用户会把搜索指向一个不存在的 provider
+# 这行**随本插件走**（配置归属跟着提供能力的插件，不留在任何聚合 bundle 里）：
+# 留在聚合 bundle 里的话，只装聚合 bundle 的用户会把搜索指向一个不存在的 provider
 # （WEB_PROVIDER_CONFIGURED_MISSING）。
 # ⚠ 整块替换 → fetchProvider 必须一起写全（见上方约束②）。
 - id: web

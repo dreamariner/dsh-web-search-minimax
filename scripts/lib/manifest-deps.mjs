@@ -1,12 +1,12 @@
 /**
- * 依赖声明的单一来源（issue 020 · ③-6 不变式 I1 / I2）。
+ * 依赖声明的单一来源（不变式：peer 外置宿主供给，其余内联自带）。
  *
  * ## 为什么要有这个文件
  *
  * 修复前，一处依赖要在**三个地方**各写一遍：
  *   1. `package.json` 的 dependencies / peerDependencies
  *   2. `tsdown.config.ts` 的 `external` / `noExternal`（已废弃 API，构建时还会打 WARN）
- *   3. `scripts/tests/ts-syntax.spec.ts` 里的手写白名单 `RUNTIME_ALLOWED`
+ *   3. 源码护栏里的手写白名单 `RUNTIME_ALLOWED`
  *
  * 三处各写一遍 = 漏一处就静默出事：漏 2 → 产物留裸 import → 运行期解析不到 →
  * cordis loader 吞异常 → 插件凭空消失（无堆栈、无报错，只有「面板不见了」）。
@@ -14,7 +14,7 @@
  * 本模块把 **package.json 变成唯一事实源**：
  *   - `peerDependencies` = 宿主供给 → **外置**（运行期由 DSH 拦截层给同一实例）
  *   - `dependencies`      = 插件自带 → **内联**（不依赖运行期 node_modules 布局）
- *   - `devDependencies`   = 只许 `import type`（由源码护栏 I4 强制）
+ *   - `devDependencies`   = 只许 `import type`（由源码护栏强制）
  *
  * 新增一个依赖 = 只改 `package.json` 一处。
  *
@@ -59,7 +59,7 @@ export function depsOf(manifest) {
   return Object.keys(manifest.dependencies ?? {})
 }
 
-/** devDependency 名：只许 `import type`（源码护栏 I4 强制，见 scripts/tests/ts-syntax.spec.ts）。 */
+/** devDependency 名：只许 `import type`（源码护栏强制）。 */
 export function devDepsOf(manifest) {
   return Object.keys(manifest.devDependencies ?? {})
 }

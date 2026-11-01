@@ -1,15 +1,14 @@
-// dsh-web-search-minimax：用 MiniMax 的联网搜索实现 DSH 的 WebSearchProvider（issue 004）
+// dsh-web-search-minimax：用 MiniMax 的联网搜索实现 DSH 的 WebSearchProvider
 //
-// 选型依据：手上已有 MiniMax 密钥（与对话同一个），没必要为搜索再开一个 DeepSeek
-// 账号。实现走直调 API 而非 shell out 到 mmx —— 后者每次搜索多一个 Node 进程启动，且
-// 密钥落在 ~/.mmx/config.json，违反「密钥只进 ~/.dsh/.env」。
+// 设计：直调 MiniMax API（复用已配置的 MiniMax 密钥，与对话同一个），不自起进程、
+// 不落密钥副本——密钥只从 ~/.dsh/.env（或进程环境）按变量名读取。
 //
-// 本插件自 外部 DSH 定制仓 拆出为独立仓库（issue 028），与人格/记忆体系零耦合：
-//   · 不依赖任何 @外部 DSH 定制仓/* 包，唯一 peer 是 @deepseek-ai/schemastery（宿主供给同一实例）；
+// 本插件是**完全独立**的发行单元：
+//   · 不依赖任何第三方插件包，唯一 peer 是 @deepseek-ai/schemastery（宿主供给同一实例）；
 //   · 独立安装：dsh plugin --profile <p> add @dreamariner/dsh-web-search-minimax。
 //
-// 依赖硬约束（改动前必读，护栏见 tests 之外还有 外部 DSH 定制仓 的 ts-syntax 扫描）：
-//   · 依赖策略（不变式 I1/I2）：peer（schemastery）必须外置——运行期由宿主拦截层供给
+// 依赖硬约束（改动前必读）：
+//   · 依赖策略（不变式）：peer（schemastery）必须外置——运行期由宿主拦截层供给
 //     与 DSH 同一实例；其余依赖自带一份（tsdown deps 内联）。名单只写在 package.json。
 //   · 不跨包运行期导入 —— @deepseek-ai/dsh-web 只做 import type（编译期擦除）。运行期
 //     需要的一切（fetch、错误类型）用本地实现，否则 pnpm 隔离布局下解析不到该包。
@@ -48,9 +47,8 @@ const makeLog = (path: string) => (level: 'info' | 'warn', msg: string): void =>
 class SearchProviderError extends Error {
   code: string
 
-  // 历史注记：这段注释是 src 直载时代的遗物——issue 020 查明插件实际一直按 lib/ 产物装载，
-  // strip-only 约束已随 dev overlay 一同退役。参数属性在本仓（走 tsdown 编译）可用；
-  // 保留普通字段赋值写法只是风格延续，不再是约束。
+  // 历史注记：本插件装载走编译产物（lib/index.js），无 strip-only 语法约束；
+  // 保留普通字段赋值写法只是风格延续。
   constructor(message: string, code: string) {
     super(message)
     this.name = 'SearchProviderError'
@@ -200,7 +198,7 @@ async function runSearch(
     throw new SearchProviderError('[minimax] 搜索未返回任何可用来源（organic 为空或全部缺少 link）', 'MINIMAX_SEARCH_EMPTY')
   }
 
-  // 只按接口硬上限预切，**不按 wanted 切**（issue 004 收尾）：切到 wanted 会让 DSH 的
+  // 只按接口硬上限预切，**不按 wanted 切**：切到 wanted 会让 DSH 的
   // capSources 判定 `length <= maxResults` 提前成立、truncated 永远置不了位，
   // 单 query 丢掉的结果就被静默吞掉（实测日志「返回 9 条，交付 8 条」却无截断提示）。
   const capped = sources.slice(0, API_HARD_CAP)

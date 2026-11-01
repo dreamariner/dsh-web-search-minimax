@@ -1,4 +1,4 @@
-// dsh-web-search-minimax：provider 契约与失败分支（issue 004）
+// dsh-web-search-minimax：provider 契约与失败分支
 //
 // 重点覆盖三类「错了不会报错、只会静默降级」的地方：
 //   1. 请求体字段必须是 q（写成 query 会得到 2013 invalid params）
@@ -153,7 +153,7 @@ describe('结果映射', () => {
     expect(r.truncated).toBe(true)
   })
 
-  // 回归（issue 004 收尾）：插件原先按 wanted 预切并写死 truncated: false，于是
+  // 回归：插件原先按 wanted 预切并写死 truncated: false，于是
   // capSources 的 `length <= maxResults` 提前成立、永远置不了位——单 query 丢掉的结果
   // 被静默吞掉，模型看不到「还有更多」。
   it('来源多于 maxResults 时置 truncated=true（单 query 也生效）', async () => {
@@ -233,7 +233,7 @@ describe('配置', () => {
     expect(Object.keys(c)).not.toContain('searchMaxResults') // 条数归工具层，不在插件侧暴露
   })
 
-  // 回归（issue 004 收尾）：searchMaxResults 曾是合法配置键，但被工具层 tool-web 的同名
+  // 回归：searchMaxResults 曾是合法配置键，但被工具层 tool-web 的同名
   // 配置压住——配大不生效、配小才生效。移除后留下它会变成未知键被守卫拦下，避免误以为可调。
   it('已移除的 searchMaxResults 被未知键守卫拦下', () => {
     expect(() => apply({ web: { registerSearchProvider: () => {} } } as any, { searchMaxResults: 10 } as any))

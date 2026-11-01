@@ -1,5 +1,5 @@
 {
-  "name": "@dreamariner/dsh-web-search-minimax-workspace",
+  "name": "dsh-web-search-minimax-workspace",
   "private": true,
   "version": "0.1.0",
   "type": "module",

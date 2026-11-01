@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "MiniMax Web Search",
-    "description": "MiniMax web search provider for DeepSeek Harness: uses the MiniMax Coding Plan search API with the same key as your MiniMax model provider in DSH settings (CN / international via region); installs as a self-mounting bundle."
+    "description": "MiniMax web search provider for DeepSeek Harness: uses the MiniMax Coding Plan search API with the same key as your MiniMax model provider in DSH settings (CN / international via region)."
   }
 }

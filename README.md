@@ -19,6 +19,10 @@ dsh plugin --profile <name> add github:dreamariner/dsh-web-search-minimax
 
 git 安装拉的是源码，pnpm 会在装后跑本包的 `prepare`（`tsdown`）构建 `lib/`；pnpm ≥10 需要在 profile 的 `pnpm-workspace.yaml` 里放行构建（`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`）。
 
+> ⚠ **desktop profile** 会拒绝 `dsh plugin` 的 pnpm 转发（CLI 限制）：在该类 profile 安装需手动两步——
+> 在 profile 目录 `pnpm add @dreamariner/dsh-web-search-minimax`（本地开发态可用 `link:<本仓路径>`），
+> 再把包名加进该 profile `package.json` 的 `dsh.profile.bundles`。
+
 ## 配置
 
 插件自带一行自挂载 patch，其中包含 `web` 行接线（**必须随插件走**：不显式配 `searchProvider` 会与内置 provider 并存撞 `WEB_PROVIDER_AMBIGUOUS`，搜索全废）：

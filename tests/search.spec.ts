@@ -24,10 +24,17 @@ import {
 const PKG = process.cwd()
 const pkg = JSON.parse(readFileSync(join(PKG, 'package.json'), 'utf8'))
 
-/** 捕获 apply 注册的 provider，并提供可控的 fetch。 */
-function mount(config: Record<string, unknown> = {}) {
+/**
+ * 捕获 apply 注册的 provider，并提供可控的 fetch。
+ * options.credentials 模拟宿主的凭据 seam；不给它就没有 ctx.get，
+ * 即「宿主没挂凭据服务」的环境层。
+ */
+function mount(config: Record<string, unknown> = {}, options: { credentials?: any } = {}) {
   const registered: any[] = []
-  const ctx = { web: { registerSearchProvider: (p: any) => registered.push(p) } }
+  const ctx: any = { web: { registerSearchProvider: (p: any) => registered.push(p) } }
+  if (options.credentials !== undefined) {
+    ctx.get = (key: string) => key === 'credentials' ? options.credentials : undefined
+  }
   apply(ctx, config as any)
   // 被测代码调用的是全局 fetch，用 beforeEach 装的那个 stub（另建 mock 收不到调用）
   return { provider: registered[0], fetchMock: globalThis.fetch as any, ctx }
@@ -102,6 +109,72 @@ describe('provider 契约', () => {
     expect(line).toContain('已置 truncated=true')
     expect(line).not.toContain('交付 8 条')
     rmSync(logFile, { force: true })
+  })
+})
+
+describe('凭据来源（与内置 web-search-deepseek 同构）', () => {
+  const authOf = (fetchMock: any): string =>
+    (fetchMock.mock.calls[0][1] as RequestInit).headers === undefined
+      ? ''
+      : ((fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>).authorization
+
+  it('优先用凭据 seam 的值（DSH「设置 → 模型」保存的密钥落在托管存储，环境层读不到）', async () => {
+    const { provider, fetchMock } = mount({}, {
+      credentials: { resolve: async () => ({ value: 'sk-from-seam' }) },
+    })
+    respondWith(okBody)
+    await provider.search({ query: 'x' })
+    expect(authOf(fetchMock)).toBe('Bearer sk-from-seam')
+  })
+
+  it('seam 没命中时回落到环境层', async () => {
+    const { provider, fetchMock } = mount({}, {
+      credentials: { resolve: async () => undefined },
+    })
+    respondWith(okBody)
+    await provider.search({ query: 'x' })
+    expect(authOf(fetchMock)).toBe('Bearer sk-test-key')
+  })
+
+  it('seam 在场但没有值、环境层也没有 → MINIMAX_SEARCH_KEY_MISSING', async () => {
+    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' }, {
+      credentials: { resolve: async () => undefined },
+    })
+    await expect(provider.search({ query: 'x' })).rejects.toThrow(/未找到密钥/)
+  })
+
+  it('available()：环境层读不到但 seam 在场时仍为 true（托管存储里可能有值）', () => {
+    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' }, {
+      credentials: { resolve: async () => undefined },
+    })
+    expect(provider.available()).toBe(true)
+  })
+
+  it('没有 seam 时 available() 仍只看环境层（不凭空判可用）', () => {
+    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' })
+    expect(provider.available()).toBe(false)
+  })
+
+  it('变量名不合凭据引用语法时跳过 seam，不抛错（自拟名可能带短横线）', async () => {
+    process.env['my-custom-key'] = 'sk-custom'
+    try {
+      const { provider, fetchMock } = mount({ searchKeyEnv: 'my-custom-key' }, {
+        credentials: { resolve: async () => { throw new Error('不该被调用') } },
+      })
+      respondWith(okBody)
+      await expect(provider.search({ query: 'x' })).resolves.toBeTruthy()
+      expect(authOf(fetchMock)).toBe('Bearer sk-custom')
+    } finally {
+      delete process.env['my-custom-key']
+    }
+  })
+
+  it('凭据服务故障时错误原样冒泡，不伪装成「未配置密钥」', async () => {
+    const boom = new Error('凭据存储解析失败')
+    const { provider } = mount({}, {
+      credentials: { resolve: async () => { throw boom } },
+    })
+    await expect(provider.search({ query: 'x' })).rejects.toBe(boom)
   })
 })
 

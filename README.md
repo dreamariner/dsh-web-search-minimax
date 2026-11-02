@@ -7,7 +7,7 @@
 ## 功能
 
 - 实现 DSH 的 `WebSearchProvider` seam：`id / available / search` 三成员。
-- 走 MiniMax Coding Plan 的搜索接口 `POST {基址}/v1/coding_plan/search`。**密钥需自行配置**（MiniMax Coding Plan 的 key，与对话 LLM 密钥无关），支持国内版 / 国际版（`region` 切换，两区的域名与密钥互不通用）。
+- 走 MiniMax Coding Plan 的搜索接口 `POST {基址}/v1/coding_plan/search`。密钥与 DSH「设置 → 模型」里的 MiniMax 提供商**共用同一个变量名**（国内版 `MINIMAX_CN_API_KEY`），在设置页填 key 或写进 `~/.dsh/.env` 都生效；支持国内版 / 国际版（`region` 切换，两区的域名与密钥互不通用）。
 - 失败一律抛带机器可读 code 的错误（`MINIMAX_SEARCH_KEY_MISSING / _TRANSPORT / _HTTP / _REJECTED / _BAD_RESPONSE / _EMPTY`），不静默返回空结果。
   错误抛的是接缝的 `WebError`（继承 `HarnessError`），code 会进工具结果的结构化错误元数据，路由层能直接按 code 分流。
 - MiniMax 单次最多 10 条且不支持分页：只按接口硬上限封顶并如实置 `truncated`，条数截断责任在 DSH 工具层的 `tool-web.searchMaxResults`。
@@ -67,9 +67,19 @@ pnpm add github:dreamariner/dsh-web-search-minimax --dir <profile目录>
 | `logPath` | `$DSH_HOME/logs/dsh-web-search-minimax.log` | 插件日志 |
 
 **密钥首选在 DSH「设置 → 模型」里配置**：添加 MiniMax 模型提供商（如 `minimax-cn`，
-填 **MiniMax Coding Plan** 的 key）后，其 `apiKeyEnv` 指向的环境变量与插件的
-`searchKeyEnv` 默认值是**同一个**（国内版 `MINIMAX_CN_API_KEY`），搜索开箱即用，
+填 **MiniMax Coding Plan** 的 key）后，其 `apiKeyEnv` 与插件的 `searchKeyEnv`
+默认值是**同一个变量名**（国内版 `MINIMAX_CN_API_KEY`），搜索开箱即用，
 无需任何插件侧配置。
+
+插件的密钥解析与内置 provider 同构，**两条路都通**：
+
+| 密钥放在哪 | 谁读得到 |
+|---|---|
+| 设置页填的 API key（落在 `$DSH_HOME/.credentials.yaml` 托管存储） | 凭据 seam（`ctx.credentials`），插件与模型都读得到 |
+| `~/.dsh/.env` 的同名变量、进程环境 | 环境层，插件与模型都读得到 |
+
+所以设置页那一栏**留空**（走环境认证，`.env` 里已有该变量）和**填上 key** 都能用：
+前者走环境层，后者走凭据 seam，两条路插件都接上了。
 
 MiniMax 分**国内版**与**国际版**，两区的域名和密钥互不通用，按所用 plan 二选一。
 用国际版时两步：
@@ -93,7 +103,7 @@ MINIMAX_GLOBAL_API_KEY=sk-...  # region: global
 ```
 
 > 密钥来自 **MiniMax Coding Plan**；对话 LLM 用哪个提供商与本插件无关——插件只认
-> `searchKeyEnv` 指向的那个环境变量。
+> `searchKeyEnv` 指向的那个变量（它在设置页与 `.env` 里同名即可）。
 
 ## 验证
 
@@ -165,8 +175,10 @@ pnpm dev:hmr --remove   # 注销本仓全部注册
 `lib/manifest-deps.mjs`（tsdown 配置经 `../../` 引用）、`sync-pack-docs.mjs`（发布前把仓根
 README / LICENSE 同步进包目录，真源在仓根）。
 
-依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery、dsh-web）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。
+依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery、dsh-web、dsh-credentials）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。
 
 `@deepseek-ai/dsh-web` 必须在 peer 名单里：DSH 的模块解析器按 `peerDependencies` 判定，把 peer 的导入拦截并路由到宿主自己的那份实例。
 这条是「错误码能进工具层结构化元数据」的前提，工具层取 code 的判定是 `error instanceof HarnessError`，认的是**类实例身份**。
+`@deepseek-ai/dsh-credentials` 同理：插件要用宿主的凭据 seam 读设置页保存的密钥，
+`credentialRef` 必须与宿主那份是同一个实现，否则引用名与托管存储对不上。
 跨包运行期导入只限 peer 名单内的包（`fetch` 等一律本地实现），否则 pnpm 隔离布局下解析不到。

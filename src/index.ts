@@ -1,21 +1,28 @@
 // dsh-web-search-minimax：用 MiniMax 的联网搜索实现 DSH 的 WebSearchProvider
 //
-// 设计：直调 MiniMax Coding Plan 的搜索 API（密钥需用户自行配置，国内 / 国际版按
-// region 切换），不自起进程、
-// 不落密钥副本——密钥只从 ~/.dsh/.env（或进程环境）按变量名读取。
+// 设计：直调 MiniMax Coding Plan 的搜索 API（国内 / 国际版按 region 切换），
+// 不自起进程、不落密钥副本：密钥按变量名交给宿主的凭据层解析，插件不保存密钥值本身。
 //
 // 本插件是**完全独立**的发行单元：
-//   · 不依赖任何第三方插件包，唯一 peer 是 @deepseek-ai/schemastery（宿主供给同一实例）；
+//   · 不依赖任何第三方插件包，peer 只有宿主供给的公共包（名单在 package.json）；
 //   · 独立安装：dsh plugin --profile <p> add @dreamariner/dsh-web-search-minimax。
 //
 // 依赖硬约束（改动前必读）：
-//   · 依赖策略（不变式）：peer（schemastery、dsh-web）必须外置：运行期由宿主拦截层供给
-//     与 DSH 同一实例；其余依赖自带一份（tsdown deps 内联）。名单只写在 package.json。
+//   · 依赖策略（不变式）：peer（schemastery、dsh-web、dsh-credentials）必须外置：
+//     运行期由宿主拦截层供给与 DSH 同一实例；其余依赖自带一份（tsdown deps 内联）。
+//     名单只写在 package.json。
 //   · 跨包运行期导入只限 peer 名单内的包：DSH 的解析器按 peerDependencies 判定，把
 //     peer 的导入拦截并路由到宿主自己的那份实例（app-boot 的 resolver）。所以
-//     @deepseek-ai/dsh-web 的运行期导入能拿到与宿主同一个 WebError 类（判类型的前提）。
+//     @deepseek-ai/dsh-web 的运行期导入能拿到与宿主同一个 WebError 类（判类型的前提），
+//     @deepseek-ai/dsh-credentials 的 credentialRef 用的也是宿主那一份实现。
 //   · 不在 peer 名单里的包不许运行期导入：那些用本地实现（fetch 等），否则 pnpm 隔离
 //     布局下解析不到。
+//
+// 密钥解析（与内置 web-search-deepseek 同构）：
+//   · 凭据 seam 优先：DSH「设置 → 模型」保存的密钥落在托管存储，只有 seam 读得到；
+//   · 环境层兜底：启动环境 / $cwd/.env / $DSH_HOME/.env（launcher 提供的快照）；
+//   · available() 是同步接口（seam 的 resolve 是异步的），只能查环境层与
+//     「seam 是否在场」，真正的缺失留到 search() 报更具体的 MINIMAX_SEARCH_KEY_MISSING。
 //
 // 接口契约见 DSH packages/web/web/src/types.ts:102-108（id / available / search 三个成员）。
 
@@ -23,6 +30,7 @@ import { appendFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { WebError, type WebSearchProvider, type WebSearchRequest, type WebSearchResult, type WebSearchSource } from '@deepseek-ai/dsh-web'
+import { credentialRef, isCredentialRefName, type CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import {
   Config,
   KNOWN_KEYS,
@@ -96,8 +104,9 @@ export function mapSources(organic: readonly MiniMaxOrganic[]): WebSearchSource[
 }
 
 /**
- * 解析密钥：进程环境优先（由 ~/.dsh/.env 注入），回落到该文件本身。
- * `available()` 依赖它，因此必须是纯本地读取——接口明写该检查不得发网络请求。
+ * 环境层取值：进程环境优先（launcher 已把 $cwd/.env 与 $DSH_HOME/.env 物化进
+ * 进程环境），回落到直读 $DSH_HOME/.env 本身。
+ * 纯本地、零网络：接口明写这类检查不得发网络请求。
  */
 export function resolveKey(envName: string): string | undefined {
   const fromProcess = process.env[envName]
@@ -119,6 +128,26 @@ export function resolveKey(envName: string): string | undefined {
   return undefined
 }
 
+/**
+ * 造密钥解析器：凭据 seam 优先，环境层兜底（与内置 web-search-deepseek 同构）。
+ *
+ * seam 优先是关键：DSH「设置 → 模型」保存的密钥落在托管存储
+ * （$DSH_HOME/.credentials.yaml），环境层读不到，只有 seam 读得到。
+ * 变量名不合凭据引用语法（用户自拟名可能带短横线）时跳过 seam，
+ * 别让 credentialRef 的校验把插件打挂：环境层照样能供值。
+ */
+export function createKeyResolver(
+  ctx: any, credentials: CredentialProvider | undefined,
+): (envName: string) => Promise<string | undefined> {
+  return async (envName: string): Promise<string | undefined> => {
+    if (credentials !== undefined && isCredentialRefName(envName)) {
+      const hit = await credentials.resolve(credentialRef(envName))
+      if (hit !== undefined && hit.value.length > 0) return hit.value
+    }
+    return resolveKey(envName)
+  }
+}
+
 export function apply(ctx: any, rawConfig?: Partial<WebSearchMinimaxConfig> | null): void {
   // patch 里没有配置项时 YAML 会解析出 `config: null`，而默认参数 `= {}` 只对 undefined
   // 生效——真收到 null 时 Object.keys(null) 会抛 TypeError，插件静默不装载。故显式兜底。
@@ -130,8 +159,12 @@ export function apply(ctx: any, rawConfig?: Partial<WebSearchMinimaxConfig> | nu
   const cfg: WebSearchMinimaxConfig = resolveConfig(Config, config, name)
   const logPath = cfg.logPath !== '' ? cfg.logPath : defaultLogPath()
   const log = makeLog(logPath)
+  // 凭据 seam：宿主挂了 credentials 服务时才有。没有它时环境层就是整个凭据面。
+  const credentials: CredentialProvider | undefined = ctx.get?.('credentials')
+  const resolveSecret = createKeyResolver(ctx, credentials)
+  const keyEnv = effectiveSearchKeyEnv(cfg)
   // 只打变量名与基址（生效值），绝不打密钥值
-  log('info', `init： ${JSON.stringify({ id: PROVIDER_ID, region: cfg.region, searchBaseUrl: effectiveSearchBaseUrl(cfg), searchKeyEnv: effectiveSearchKeyEnv(cfg), available: resolveKey(effectiveSearchKeyEnv(cfg)) !== undefined })}`)
+  log('info', `init： ${JSON.stringify({ id: PROVIDER_ID, region: cfg.region, searchBaseUrl: effectiveSearchBaseUrl(cfg), searchKeyEnv: keyEnv, available: resolveKey(keyEnv) !== undefined, credentials: credentials !== undefined })}`)
 
   const web = ctx.web
   if (web === undefined || typeof web.registerSearchProvider !== 'function') {
@@ -140,9 +173,12 @@ export function apply(ctx: any, rawConfig?: Partial<WebSearchMinimaxConfig> | nu
 
   const provider: WebSearchProvider = {
     id: PROVIDER_ID,
-    // 接口注释明写：廉价本地可用性检查，不得发网络请求。所以只看密钥在不在。
-    available: () => resolveKey(effectiveSearchKeyEnv(cfg)) !== undefined,
-    search: (request: WebSearchRequest, signal?: AbortSignal) => runSearch(cfg, request, signal, log),
+    // 接口注释明写：廉价本地可用性检查，不得发网络请求。
+    // seam 的 resolve 是异步的，available() 判不了托管存储里的值，所以判「有无途径」：
+    // 环境层能同步读到 → 可用；读不到但 seam 在场 → 托管存储里可能有值（设置页填过），
+    // 真正的缺失留到 search() 报更具体的 MINIMAX_SEARCH_KEY_MISSING。
+    available: () => resolveKey(keyEnv) !== undefined || credentials !== undefined,
+    search: (request: WebSearchRequest, signal?: AbortSignal) => runSearch(cfg, request, signal, log, resolveSecret),
   }
 
   web.registerSearchProvider(provider)
@@ -154,12 +190,14 @@ async function runSearch(
   request: WebSearchRequest,
   signal: AbortSignal | undefined,
   log: (level: 'info' | 'warn', msg: string) => void,
+  resolveSecret: (envName: string) => Promise<string | undefined>,
 ): Promise<WebSearchResult> {
   const keyEnv = effectiveSearchKeyEnv(cfg)
-  const key = resolveKey(keyEnv)
+  const key = await resolveSecret(keyEnv)
   if (key === undefined) {
     throw searchError(
-      `[minimax] 未找到密钥环境变量 ${keyEnv}（region=${cfg.region}，值应写在 ~/.dsh/.env）`,
+      `[minimax] 未找到密钥 ${keyEnv}（region=${cfg.region}）：值可在 DSH「设置 → 模型」的 MiniMax 提供商里填，`
+      + '或写进 ~/.dsh/.env 的同名变量',
       'MINIMAX_SEARCH_KEY_MISSING',
     )
   }

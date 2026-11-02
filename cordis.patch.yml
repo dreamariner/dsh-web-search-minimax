@@ -18,8 +18,9 @@
 #      改已有行时**不要**写 name；`name` 只在 `- insert:` 里才有意义（它是新行的模块引用）。
 
 # 自建 web search provider：走 MiniMax Coding Plan 搜索接口。密钥与 DSH「设置 → 模型」
-# 里 MiniMax 提供商的 apiKeyEnv 共用同一个环境变量（国内 / 国际两区的域名与密钥都
-# 不通用，region 切换）；未配模型提供商时直接写 ~/.dsh/.env 也可以。
+# 里 MiniMax 提供商的 apiKeyEnv 共用同一个变量名（国内 / 国际两区的域名与密钥都
+# 不通用，region 切换）：设置页填的 key 走凭据 seam，~/.dsh/.env 里的走环境层，
+# 两条插件都接上了；未配模型提供商时直接写 ~/.dsh/.env 也可以。
 # 刻意不带 config 块：三个配置项都有默认值，且**刻意不提供 searchMaxResults**——
 # 条数由工具层 tool-web.searchMaxResults 决定（默认 8），插件侧再设同名旋钮会被它
 # 单向压住（配大不生效、配小才生效）。

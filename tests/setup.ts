@@ -4,6 +4,7 @@
 //  2) 密钥类环境变量清零 —— resolveKey() 先读 process.env 再读 ~/.dsh/.env；在 DSH 会话内
 //     跑测试时（日常场景）测试进程会继承生产配置，「未配置」类用例会读到真实值而红。
 //     各用例需要的密钥在 beforeEach 里显式设置。
+//  3) 凭据 seam 由用例自己 mock（ctx.get('credentials')），不碰宿主真实凭据存储。
 
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,7 +16,7 @@ let testHome: string
 beforeAll(() => {
   testHome = mkdtempSync(join(tmpdir(), 'dsh-web-search-minimax-test-home-'))
   process.env.DSH_HOME = testHome
-  for (const key of ['MINIMAX_CN_API_KEY', 'MINIMAX_API_KEY']) delete process.env[key]
+  for (const key of ['MINIMAX_CN_API_KEY', 'MINIMAX_GLOBAL_API_KEY', 'MINIMAX_API_KEY']) delete process.env[key]
 })
 
 afterAll(() => {

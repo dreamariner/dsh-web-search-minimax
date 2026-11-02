@@ -9,6 +9,8 @@ npm-debug.log*
 !.env.example
 
 # 依赖与构建缓存
+# 构建产物不入库：npm 发布走 prepare，本地安装走 profile:add 装前构建
+lib/
 .vite/
 *.tsbuildinfo
 

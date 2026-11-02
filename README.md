@@ -14,44 +14,29 @@
 
 ## 安装
 
-**方式一（推荐）：CLI 一条命令 = 装包 + 登记 bundle 名单，一步到位**
+**想用**（npm 发布后）：
+
+- headless 环境：`dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax`（官方 reconcile 登记名单）
+- desktop 应用：Plugin Manager 里直接装
+- 或统一一条命令：`pnpm profile:add --npm`（同下，多一层自检）
+
+**想改**（本地源码态）：
 
 ```sh
-dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax
+pnpm profile:add          # link: 本仓装进 ~/.dsh/profiles/desktop；缺依赖自动 install、装前自动构建
+pnpm profile:add --remove # 反向卸载（含名单清理）
 ```
 
-**方式二：本仓自带脚本，一条命令 = 装包 + 登记 + 自检**（desktop profile 由 Electron
-应用专属管理，`dsh plugin add` 的官方 reconcile 触达不到，故自带脚本做等价动作）：
-
-```sh
-pnpm profile:add                                # 缺省装进 ~/.dsh/profiles/desktop（link: 本仓）
-pnpm profile:add --npm                          # 发布后：从 npm 装
-pnpm profile:add --github                       # 从 GitHub 装（按 origin 解析 owner/repo）
-pnpm profile:add --remove                       # 反向卸载（含名单清理）
-```
-
-> 等价裸命令 `node scripts/profile-add.mjs`（npm 用户则 `npm run profile:add -- <参数>`）；两形态都定义在 package.json 的 `profile:add` 脚本上。
-
-脚本做三件事：① `pnpm add <spec> --dir <profile>`；② 把包名幂等追加进 profile
+脚本依次做：缺依赖先 `pnpm install`；构建本包（lib/ 不入库，link: 安装不触发 pnpm
+lifecycle）；`pnpm add <spec> --dir <profile>`；把包名幂等追加进 profile
 `package.json` 的 `dsh.profile.bundles`（DSH 只认这份名单，裸 `pnpm add` 不登记 =
-插件静默不挂载），并钉 packageManager；③ realpath 自检目标 manifest 带
-`dsh.bundle` 且包名一致，「静默失效」在这里变成显式报错。装完**重启实例一次**生效。
+插件静默不挂载）并钉 packageManager；realpath 自检 manifest 带 `dsh.bundle`、包名
+一致、入口产物存在。装完**重启实例一次**生效。
 
-> 手动等价（不想用脚本时）：`pnpm add <spec> --dir <profile>` 后，把
-> `@dreamariner/dsh-web-search-minimax` 加进 profile `package.json` 的
+> npm 首发前先用「想改」的 link 态。
+> 手动等价：`pnpm add <spec> --dir <profile>` 后，把
+> `@dreamariner/dsh-web-search-minimax` 补进 profile `package.json` 的
 > `dsh.profile.bundles` 数组。
-
-> git 安装且 pnpm ≥ 10 时，需在 profile 的 `pnpm-workspace.yaml` 放行构建脚本
-> （`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`，pnpm 10 的
-> 键名是 `onlyBuiltDependencies`）。git 依赖的 `prepare` 必须执行才能重建 `lib/`，
-> pnpm 10+ 不放行会直接报错拒绝安装（ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED）。
-> 放行的键按**实际装出来的包**走：上面三种形态装出的
-> 都是插件包，键是 `@dreamariner/dsh-web-search-minimax`。
->
-> 本仓是单包布局，`dsh plugin add github:` 的 CLI 形态装的就是插件包本身，
-> 不需要 git 子目录语法。
->
-> desktop profile 也可以用 app 内 Plugin Manager（同样两步齐全）。
 
 ## 配置
 

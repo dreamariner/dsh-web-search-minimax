@@ -1,24 +1,26 @@
 #!/usr/bin/env node
-// @dreamariner/dsh-web-search-minimax :: profile-add.mjs — 把本插件装进 DSH profile：装包 + 登记 + 自检，一条命令
+// @dreamariner/dsh-web-search-minimax :: profile-add.mjs — 把本插件装进 DSH profile：构建 + 装包 + 登记 + 自检，一条命令
 //
 // 背景：desktop profile 由 Electron 应用专属管理，`dsh plugin add` 的官方 reconcile
 // 触达不到（CLI 对 desktop profile 直接拒绝）；裸 `pnpm add` 又只装包不登记：DSH 的
 // profile 只认 package.json 里的 `dsh.profile.bundles` 名单（loadProfileDirectory 不扫
-// dependencies），装完不登记 = 插件静默不挂载。本脚本把三步收拢（同 luna-dsh
-// bootstrap 的 reconcile 等价动作）：
+// dependencies），装完不登记 = 插件静默不挂载。本脚本把安装收拢成一条命令：
 //
-//   node scripts/profile-add.mjs [profile目录]     # 缺省 ~/.dsh/profiles/desktop
-//   node scripts/profile-add.mjs --npm [...]       # 从 npm 安装（发布后）；缺省 link: 本仓
-//   node scripts/profile-add.mjs --github [...]    # 从 GitHub 安装（按 origin 解析 owner/repo）
+//   node scripts/profile-add.mjs [profile目录]     # 缺省 ~/.dsh/profiles/desktop，link: 本仓
+//   node scripts/profile-add.mjs --npm [...]       # 从 npm 安装（发布后）
 //   node scripts/profile-add.mjs --remove [...]    # 反向卸载（含名单清理）
 //
-// 动作：
+// 动作（link 态）：
+//   ⓪ 装前构建：node_modules 缺失先 pnpm install；随后构建本包（single 布局
+//     `pnpm build`；workspace 布局 `pnpm --filter <包名>... build` 含依赖链）。
+//     lib/ 是构建产物不入库（gitignore），link: 安装也不触发 pnpm lifecycle，构建只能在此做
 //   ① pnpm add <spec> --dir <profile>
 //   ② 幂等追加 "@dreamariner/dsh-web-search-minimax" 进 dsh.profile.bundles，并钉 packageManager
 //     （profile 的 node_modules 布局跟 pnpm 大版本绑定，钉版防嵌套 pnpm 劫持）
-//   ③ 自检：realpath 后验目标 manifest 带 dsh.bundle 且包名一致，把「静默失效」
-//     变成显式报错
+//   ③ 自检：realpath 后验目标 manifest 带 dsh.bundle 且包名一致、main 入口产物存在，
+//     把「静默失效」变成显式报错
 //   ④ 提示重启实例生效
+// --npm 态跳过 ⓪（tarball 自带构建产物）；--remove 只走 ①②
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -26,7 +28,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const NAME = '@dreamariner/dsh-web-search-minimax'
-// 本包相对仓根的子路径：single 布局 = ''（根即插件包）；workspace = /packages/<id>
+// 本包相对仓根的子路径：single 布局 = ''（根即插件包，build 在根）；workspace =
+// /packages/<id>（--filter 本包含依赖构建，link 指向子目录）
 const SELF_SUFFIX = ''
 const PM = 'pnpm@11.7.0'
 
@@ -34,7 +37,6 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const remove = args.includes('--remove')
 const fromNpm = args.includes('--npm')
-const fromGithub = args.includes('--github')
 const profileArg = args.find((a) => !a.startsWith('--'))
 const profileDir = resolve(profileArg ?? join(homedir(), '.dsh', 'profiles', 'desktop'))
 const pkgPath = join(profileDir, 'package.json')
@@ -45,17 +47,20 @@ const fail = (msg) => {
 if (!existsSync(pkgPath)) fail(`profile 目录不存在或没有 package.json：${profileDir}`)
 
 // ── 安装来源 ────────────────────────────────────────────────────────────────
-// link:（缺省）= 本仓 clone 的开发态；--npm = 发布后的包名；--github = 远端仓。
-const selfLink = `link:${repo}${SELF_SUFFIX}`
-const ghSpec = (() => {
-  const r = spawnSync('git', ['-C', repo, 'remote', 'get-url', 'origin'], { encoding: 'utf8' })
-  const url = (r.stdout ?? '').trim()
-  const m = url.match(/github\.com[:/]+([^/]+)\/([^/]+?)(?:\.git)?$/)
-  if (!m) return null
-  return `github:${m[1]}/${m[2]}${SELF_SUFFIX ? `#path:${SELF_SUFFIX.slice(1)}` : ''}`
-})()
-const spec = remove ? NAME : fromNpm ? NAME : fromGithub ? ghSpec : selfLink
-if (!spec) fail('解析不到 GitHub origin（git remote get-url origin 为空或非 github）:用 --npm 或默认 link: 安装')
+// link:（缺省）= 本仓 clone 的开发态；--npm = 发布后的包名。
+const spec = remove ? NAME : fromNpm ? NAME : `link:${repo}${SELF_SUFFIX}`
+
+// ── ⓪ 装前构建（仅 link 态；--npm 的 tarball 自带产物，--remove 无需构建）────
+if (!remove && !fromNpm) {
+  const run = (cmdArgs) => {
+    console.log(`[profile-add] pnpm ${cmdArgs.join(' ')}（cwd ${repo}）`)
+    const b = spawnSync('pnpm', cmdArgs, { cwd: repo, stdio: 'inherit' })
+    if (b.status !== 0) fail(`pnpm ${cmdArgs.join(' ')} 失败（见上方输出），中止安装`)
+  }
+  if (!existsSync(join(repo, 'node_modules'))) run(['install'])
+  if (SELF_SUFFIX) run(['--filter', `${NAME}...`, 'build'])
+  else run(['build'])
+}
 
 // ── ① 装包 / 卸包 ───────────────────────────────────────────────────────────
 const verb = remove ? 'remove' : 'add'
@@ -93,6 +98,14 @@ if (target.dsh?.bundle === undefined) {
   fail(`安装目标不是插件包（manifest 无 dsh.bundle）：${real}\n  多半装到了根壳：link/spec 必须指向插件包${SELF_SUFFIX || ''}`)
 }
 if (target.name !== NAME) fail(`包名不一致：期望 ${NAME}，实际 ${target.name}（${real}）`)
+// 产物存在性：lib 出库后，漏构建会在这里显式报错（而不是等 boot 时的 plugin.log）
+const mainFile = typeof target.main === 'string' ? target.main : '.'
+if (!existsSync(join(real, mainFile))) fail(`入口产物缺失：${join(real, mainFile)}\n  构建没跑成？在本仓 pnpm build 后重试`)
+const typert = target.exports?.['./typert']
+if (typert) {
+  const typertFile = typeof typert === 'string' ? typert : typert.default
+  if (!existsSync(join(real, typertFile))) fail(`typert 产物缺失：${join(real, typertFile)}（构建不完整？）`)
+}
 
 console.log(`[profile-add] ✓ 已安装并登记：${NAME} → ${real}`)
 console.log(`[profile-add]   bundles = ${manifest.dsh.profile.bundles.join(', ')}`)

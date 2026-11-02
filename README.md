@@ -24,11 +24,13 @@ dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax
 应用专属管理，`dsh plugin add` 的官方 reconcile 触达不到，故自带脚本做等价动作）：
 
 ```sh
-node scripts/profile-add.mjs                    # 缺省装进 ~/.dsh/profiles/desktop（link: 本仓）
-node scripts/profile-add.mjs --npm              # 发布后：从 npm 装
-node scripts/profile-add.mjs --github           # 从 GitHub 装（按 origin 解析 owner/repo）
-node scripts/profile-add.mjs --remove           # 反向卸载（含名单清理）
+pnpm profile:add                                # 缺省装进 ~/.dsh/profiles/desktop（link: 本仓）
+pnpm profile:add --npm                          # 发布后：从 npm 装
+pnpm profile:add --github                       # 从 GitHub 装（按 origin 解析 owner/repo）
+pnpm profile:add --remove                       # 反向卸载（含名单清理）
 ```
+
+> 等价裸命令 `node scripts/profile-add.mjs`（npm 用户则 `npm run profile:add -- <参数>`）；两形态都定义在 package.json 的 `profile:add` 脚本上。
 
 脚本做三件事：① `pnpm add <spec> --dir <profile>`；② 把包名幂等追加进 profile
 `package.json` 的 `dsh.profile.bundles`（DSH 只认这份名单，裸 `pnpm add` 不登记 =

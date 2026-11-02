@@ -20,22 +20,24 @@
 dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax
 ```
 
-**方式二：手动 pnpm 装**（desktop profile 不接受 CLI 的 pnpm 转发；git 子目录语法 CLI 不认时）
-
-⚠ 裸 `pnpm add` 只完成「装包」：DSH 的 profile 只认 `dsh.profile.bundles` 名单
-（loadProfileDirectory 不扫 dependencies），装完**必须把包名补进 profile
-`package.json` 的 `dsh.profile.bundles`**，插件才会挂载。自挂载 bundle 解决的是
-「名单里的包怎么挂载」，不解决「哪些包进名单」。
+**方式二：本仓自带脚本，一条命令 = 装包 + 登记 + 自检**（desktop profile 由 Electron
+应用专属管理，`dsh plugin add` 的官方 reconcile 触达不到，故自带脚本做等价动作）：
 
 ```sh
-# ① 装包（三选一）：
-pnpm add @dreamariner/dsh-web-search-minimax --dir <profile目录>              # npm
-pnpm add link:<本仓路径> --dir <profile目录>   # 本地开发态（单包仓：link 仓根即可）
-pnpm add github:dreamariner/dsh-web-search-minimax --dir <profile目录>
-
-# ② 登记：把 "@dreamariner/dsh-web-search-minimax" 加进 profile package.json 的
-#    dsh.profile.bundles 数组
+node scripts/profile-add.mjs                    # 缺省装进 ~/.dsh/profiles/desktop（link: 本仓）
+node scripts/profile-add.mjs --npm              # 发布后：从 npm 装
+node scripts/profile-add.mjs --github           # 从 GitHub 装（按 origin 解析 owner/repo）
+node scripts/profile-add.mjs --remove           # 反向卸载（含名单清理）
 ```
+
+脚本做三件事：① `pnpm add <spec> --dir <profile>`；② 把包名幂等追加进 profile
+`package.json` 的 `dsh.profile.bundles`（DSH 只认这份名单，裸 `pnpm add` 不登记 =
+插件静默不挂载），并钉 packageManager；③ realpath 自检目标 manifest 带
+`dsh.bundle` 且包名一致，「静默失效」在这里变成显式报错。装完**重启实例一次**生效。
+
+> 手动等价（不想用脚本时）：`pnpm add <spec> --dir <profile>` 后，把
+> `@dreamariner/dsh-web-search-minimax` 加进 profile `package.json` 的
+> `dsh.profile.bundles` 数组。
 
 > git 安装且 pnpm ≥ 10 时，需在 profile 的 `pnpm-workspace.yaml` 放行构建脚本
 > （`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`，pnpm 10 的
@@ -106,7 +108,7 @@ MINIMAX_CN_API_KEY=sk-...      # region: cn（默认）
 MINIMAX_GLOBAL_API_KEY=sk-...  # region: global
 ```
 
-> 密钥来自 **MiniMax Coding Plan**；对话 LLM 用哪个提供商与本插件无关——插件只认
+> 密钥来自 **MiniMax Coding Plan**；对话 LLM 用哪个提供商与本插件无关，插件只认
 > `searchKeyEnv` 指向的那个变量（它在设置页与 `.env` 里同名即可）。
 
 ## 验证

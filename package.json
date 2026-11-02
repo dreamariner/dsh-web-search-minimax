@@ -26,7 +26,8 @@
     "prepare": "tsdown",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "profile:add": "node scripts/profile-add.mjs"
   },
   "keywords": [
     "dsh",

@@ -20,7 +20,7 @@ import {
   resolveConfig,
 } from '../src/config.ts'
 
-// workspace 布局：本 spec 在根 vitest 下跑（cwd = 仓根），本包在 packages/<id>/
+// 单包布局：本 spec 在仓根 vitest 下跑（cwd = 仓根），本包即仓根
 const PKG = process.cwd()
 const pkg = JSON.parse(readFileSync(join(PKG, 'package.json'), 'utf8'))
 

@@ -1,49 +1,45 @@
 #!/usr/bin/env node
-// dsh-web-search-minimax :: dev-hmr.mjs — 项目级 hmr 接线：把全部插件包的 lib/ 注册进本机 DSH 的 hmr watch 根
+// dsh-web-search-minimax :: dev-hmr.mjs — hmr 接线：把本包 lib/ 注册进本机 DSH 的 hmr watch 根
 //
 // 用途：开发时「保存 → pnpm dev 重建 → 实例内热重载（免重启、PID 不变）」。
-//   pnpm dev:hmr            注册全部 packages/*/lib（幂等；add 新插件后重跑一次即可）
+//   pnpm dev:hmr            注册本包 lib/（幂等）
 //   pnpm dev:hmr --remove   注销本仓的全部注册
 //
 // 机制：DSH 的 hmr 行住在本机 home patch（$DSH_HOME/cordis.patch.yml，机器本地产物，
-// 不进任何 git）。本脚本只往该行 config.root 数组里增删**本仓** packages/*/lib 的
-// 绝对路径，不触碰 root 里的其它行（各家脚本互不干扰、各自管理自己的行）。
+// 不进任何 git）。本脚本只往该行 config.root 数组里增删**本仓**的 lib 绝对路径，
+// 不触碰 root 里的其它行（各家脚本互不干扰、各自管理自己的行）。
 // 变更 watch 根需重启实例一次生效；之后的改动随 pnpm dev 重建即时热重载。
 //
 // 固有限制（DSH hmr 机制）：只认 change 事件（删除文件不触发 reload）、实例启动
-// 窗口内的改动被丢弃、macOS FSEvents 注册窗口。client 半边不用注册：DSH 的
-// client-hmr 自动盯着 lib/client.js（若存在），重建即热替换。
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+// 窗口内的改动被丢弃、macOS FSEvents 注册窗口。
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// 本仓是单包布局（根即插件包）：构建产物就在仓根 lib/。
+const libDir = join(repo, 'lib')
+// 旧布局（根壳 + packages/<id>/）的产物目录：只用来识别并清理历史注册项。
 const packagesDir = join(repo, 'packages')
 const remove = process.argv.includes('--remove')
 const dshHome = process.env.DSH_HOME || join(homedir(), '.dsh')
 const homePatch = join(dshHome, 'cordis.patch.yml')
 
-const packageDirs = existsSync(packagesDir)
-  ? readdirSync(packagesDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => join(packagesDir, e.name))
-  : []
-// 本仓的 lib 目录集合（存在的才算：没构建的包注册了也没有产物可热重载）
-const libDirs = packageDirs.filter((d) => existsSync(join(d, 'lib'))).map((d) => join(d, 'lib'))
+// 本仓的 lib 目录集合（存在的才算：没构建就注册了也没有产物可热重载）
+const libDirs = existsSync(libDir) ? [libDir] : []
 
 if (!remove && libDirs.length === 0) {
-  console.error('[dev-hmr] packages/*/lib 都不存在:先构建一次：pnpm build')
+  console.error('[dev-hmr] 仓根 lib/ 不存在:先构建一次：pnpm build')
   process.exit(1)
 }
 
-// js-yaml 是各插件包的 devDep（pnpm 严格隔离，根 node_modules 没有它），从包里借
+// js-yaml 是本仓 devDep（pnpm 严格隔离），从仓根借
 let yaml
-for (const pkg of packageDirs) {
-  try {
-    yaml = createRequire(join(pkg, 'package.json'))('js-yaml')
-    break
-  } catch {}
-}
+try {
+  yaml = createRequire(join(repo, 'package.json'))('js-yaml')
+} catch {}
 if (!yaml) {
   console.error('[dev-hmr] 缺 js-yaml 依赖:先 pnpm install')
   process.exit(1)
@@ -87,14 +83,18 @@ if (hmr.config.root !== undefined && !Array.isArray(hmr.config.root)) {
 }
 if (!Array.isArray(hmr.config.root)) hmr.config.root = []
 
-// 本脚本家族的管理范围：本仓 packages/*/lib 形态的条目（别的仓 / 别家工具的行不动）
-const isOurs = (r) => typeof r === 'string' && r.startsWith(packagesDir + sep) && r.endsWith(sep + 'lib')
+// 本脚本家族的管理范围：本仓的 lib 条目（别的仓 / 别家工具的行不动）。
+// 同时认旧的 packages/*/lib：布局迁回单包前注册过的条目，重跑一次即可清掉。
+const isOurs = (r) => typeof r === 'string' && (
+  r === libDir
+  || (r.startsWith(packagesDir + sep) && r.endsWith(sep + 'lib'))
+)
 const oursBefore = hmr.config.root.filter(isOurs)
 
 if (remove) {
   hmr.config.root = hmr.config.root.filter((r) => !isOurs(r))
 } else {
-  // 先清掉本仓已失效的条目（包被删 / lib 被清），再补齐现存集合
+  // 先清掉本仓已失效的条目（布局迁移前的 packages/*/lib），再补齐现存集合
   hmr.config.root = hmr.config.root.filter((r) => !isOurs(r) || libDirs.includes(r))
   for (const dir of libDirs) {
     if (!hmr.config.root.includes(dir)) hmr.config.root.push(dir)
@@ -106,7 +106,7 @@ writeFileSync(homePatch, `${yaml.dump(rows, { schema: PATCH_SCHEMA, lineWidth: -
 
 if (remove) {
   console.log(oursBefore.length > 0
-    ? `[dev-hmr] 已注销 ${oursBefore.length} 个注册（本仓 packages/*/lib；重启实例生效）`
+    ? `[dev-hmr] 已注销 ${oursBefore.length} 个注册（本仓 lib/；重启实例生效）`
     : '[dev-hmr] 本来就未注册，无需操作')
 } else {
   const added = oursAfter.filter((r) => !oursBefore.includes(r)).length

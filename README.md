@@ -42,7 +42,9 @@ pnpm add github:dreamariner/dsh-web-search-minimax --dir <profile目录>
 > 键名是 `onlyBuiltDependencies`）。`lib/` 已随仓提交，放行前也能装上，放行是为了
 > prepare 能重建到最新源码。放行的键按**实际装出来的包**走：上面三种形态装出的
 > 都是插件包，键是 `@dreamariner/dsh-web-search-minimax`。
-本仓是单包布局，`dsh plugin add github:` 的 CLI 形态装的就是插件包本身，一步到位。
+>
+> 本仓是单包布局，`dsh plugin add github:` 的 CLI 形态装的就是插件包本身，一步到位。
+>
 > desktop profile 也可以用 app 内 Plugin Manager（同样两步齐全）。
 
 ## 配置
@@ -171,9 +173,8 @@ pnpm dev:hmr --remove   # 注销本仓全部注册
 - 固有限制（DSH hmr 机制）：只认 change 事件（删除文件不触发 reload）、实例启动窗口内的
   改动被丢弃、macOS FSEvents 注册窗口。生产/分发场景不需要 hmr。
 
-项目共用脚本在根 `scripts/`（一仓一份，add 插件不复制）：`dev-hmr.mjs`（上面的 hmr 接线）、
-`lib/manifest-deps.mjs`（tsdown 配置经 `../../` 引用）、`sync-pack-docs.mjs`（发布前把仓根
-README / LICENSE 同步进包目录，真源在仓根）。
+仓内脚本在根 `scripts/`：`dev-hmr.mjs`（上面的 hmr 接线）、
+`lib/manifest-deps.mjs`（tsdown 配置经 `./scripts/lib/manifest-deps.mjs` 引用）。
 
 依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery、dsh-web、dsh-credentials）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。
 

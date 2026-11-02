@@ -7,7 +7,7 @@
 // dependencies），装完不登记 = 插件静默不挂载。本脚本把安装收拢成一条命令：
 //
 //   node scripts/profile-add.mjs [profile目录]     # 缺省 ~/.dsh/profiles/desktop，link: 本仓
-//   node scripts/profile-add.mjs --npm [...]       # 从 npm 安装（发布后）
+//   node scripts/profile-add.mjs --npm [...]       # 从 npm 装
 //   node scripts/profile-add.mjs --remove [...]    # 反向卸载（含名单清理）
 //
 // 动作（link 态）：
@@ -47,7 +47,7 @@ const fail = (msg) => {
 if (!existsSync(pkgPath)) fail(`profile 目录不存在或没有 package.json：${profileDir}`)
 
 // ── 安装来源 ────────────────────────────────────────────────────────────────
-// link:（缺省）= 本仓 clone 的开发态；--npm = 发布后的包名。
+// link:（缺省）= 本仓 clone 的开发态；--npm = npm 上的发行版。
 const spec = remove ? NAME : fromNpm ? NAME : `link:${repo}${SELF_SUFFIX}`
 
 // ── ⓪ 装前构建（仅 link 态；--npm 的 tarball 自带产物，--remove 无需构建）────

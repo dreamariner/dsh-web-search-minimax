@@ -14,7 +14,7 @@
 
 ## 安装
 
-**想用**（npm 发布后）：
+**想用**（npm）：
 
 - headless 环境：`dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax`（官方 reconcile 登记名单）
 - desktop 应用：Plugin Manager 里直接装
@@ -33,7 +33,6 @@ lifecycle）；`pnpm add <spec> --dir <profile>`；把包名幂等追加进 prof
 插件静默不挂载）并钉 packageManager；realpath 自检 manifest 带 `dsh.bundle`、包名
 一致、入口产物存在。装完**重启实例一次**生效。
 
-> npm 首发前先用「想改」的 link 态。
 > 手动等价：`pnpm add <spec> --dir <profile>` 后，把
 > `@dreamariner/dsh-web-search-minimax` 补进 profile `package.json` 的
 > `dsh.profile.bundles` 数组。

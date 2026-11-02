@@ -1,6 +1,7 @@
 node_modules/
 *.log
 npm-debug.log*
+*.tgz
 
 # 环境变量（机器本地配置；机密只进 ~/.dsh/.env）
 .env

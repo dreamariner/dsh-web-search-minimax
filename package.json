@@ -7,14 +7,12 @@
   "icon": "./icon.svg",
   "exports": {
     ".": "./lib/index.js",
-    "./src/*": "./src/*",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
-    "src",
     "locale",
     "cordis.patch.yml",
     "icon.svg",

@@ -2,7 +2,7 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 MiniMax 联网搜索 provider，以**自挂载 bundle**（官方「一包既是 bundle 又是 plugin」形态）发布，可用 `dsh plugin` 独立安装。
 
-本仓是**单包布局**（脚手架 [create-dsh-plugin](https://github.com/dreamariner/create-dsh-plugin) 的 host 形态）：根即插件包，构建、发布、安装都以本仓为单位。绝大多数插件是单仓单插件，单包让 npm / `dsh plugin add github:` / 手动 pnpm 三条安装路一步到位。
+本仓是**单包布局**（脚手架 [create-dsh-plugin](https://github.com/dreamariner/create-dsh-plugin) 的 host 形态）：根即插件包，构建、发布、安装都以本仓为单位。
 
 ## 功能
 
@@ -17,7 +17,7 @@
 **方式一（推荐）：CLI 一条命令 = 装包 + 登记 bundle 名单，一步到位**
 
 ```sh
-dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax   # npm（发布后）
+dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax
 ```
 
 **方式二：手动 pnpm 装**（desktop profile 不接受 CLI 的 pnpm 转发；git 子目录语法 CLI 不认时）
@@ -29,7 +29,7 @@ dsh plugin --profile <name> add @dreamariner/dsh-web-search-minimax   # npm（�
 
 ```sh
 # ① 装包（三选一）：
-pnpm add @dreamariner/dsh-web-search-minimax --dir <profile目录>              # npm（发布后）
+pnpm add @dreamariner/dsh-web-search-minimax --dir <profile目录>              # npm
 pnpm add link:<本仓路径> --dir <profile目录>   # 本地开发态（单包仓：link 仓根即可）
 pnpm add github:dreamariner/dsh-web-search-minimax --dir <profile目录>
 
@@ -39,11 +39,13 @@ pnpm add github:dreamariner/dsh-web-search-minimax --dir <profile目录>
 
 > git 安装且 pnpm ≥ 10 时，需在 profile 的 `pnpm-workspace.yaml` 放行构建脚本
 > （`allowBuilds: { "@dreamariner/dsh-web-search-minimax": true }`，pnpm 10 的
-> 键名是 `onlyBuiltDependencies`）。`lib/` 已随仓提交，放行前也能装上，放行是为了
-> prepare 能重建到最新源码。放行的键按**实际装出来的包**走：上面三种形态装出的
+> 键名是 `onlyBuiltDependencies`）。git 依赖的 `prepare` 必须执行才能重建 `lib/`，
+> pnpm 10+ 不放行会直接报错拒绝安装（ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED）。
+> 放行的键按**实际装出来的包**走：上面三种形态装出的
 > 都是插件包，键是 `@dreamariner/dsh-web-search-minimax`。
 >
-> 本仓是单包布局，`dsh plugin add github:` 的 CLI 形态装的就是插件包本身，一步到位。
+> 本仓是单包布局，`dsh plugin add github:` 的 CLI 形态装的就是插件包本身，
+> 不需要 git 子目录语法。
 >
 > desktop profile 也可以用 app 内 Plugin Manager（同样两步齐全）。
 
@@ -174,7 +176,7 @@ pnpm dev:hmr --remove   # 注销本仓全部注册
   改动被丢弃、macOS FSEvents 注册窗口。生产/分发场景不需要 hmr。
 
 仓内脚本在根 `scripts/`：`dev-hmr.mjs`（上面的 hmr 接线）、
-`lib/manifest-deps.mjs`（tsdown 配置经 `./scripts/lib/manifest-deps.mjs` 引用）。
+`scripts/lib/manifest-deps.mjs`（tsdown 配置经 `./scripts/lib/manifest-deps.mjs` 引用）。
 
 依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery、dsh-web、dsh-credentials）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。
 

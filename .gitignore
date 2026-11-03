@@ -10,7 +10,8 @@ npm-debug.log*
 
 # 依赖与构建缓存
 # 构建产物不入库：npm 发布走 prepare，本地安装走 profile:add 装前构建
-lib/
+# 锚定（无斜杠的 lib/ 会任意深度匹配，误伤 scripts/lib/ 共享模块）
+/lib/
 .vite/
 *.tsbuildinfo
 

@@ -12,6 +12,11 @@ MiniMax Coding Plan 搜索接口（`POST {基址}/v1/coding_plan/search`）。�
 - 工程说明（安装 / 配置 / 发布）：[README.md](README.md)
 - 密钥与 DSH「设置 → 模型」里的 MiniMax 提供商共用同一变量名
 
+## 文档机制
+
+- 需求与迭代跟踪：[docs/issues/AGENTS.md](docs/issues/AGENTS.md)（唯一索引 / 状态真相源，新 issue 走其工作流）
+- 系统现状：[docs/wiki/00-变更日志.md](docs/wiki/00-变更日志.md)（结构变化在此留时间线）
+
 ## 形态速记
 
 - **单包布局 host 插件**（create-dsh-plugin 生成）：根即插件包，`src/index.ts` 是

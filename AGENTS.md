@@ -49,5 +49,6 @@ pnpm profile:add --npm   # 从 npm 装（发布态）
 - **发布面不含 src**：`files` 白名单与 `exports` 都不带源码。
 - **available() 不得发网络请求**：接口明写的契约，密钥检查只走本地。
 - **密钥值不进配置**：配置只存变量名，值只在 `~/.dsh/.env` 或设置页托管存储。
-- **DSH 版本锚 `0.2.1-rc.3`**：peer（dsh-web / dsh-credentials / schemastery）与 engines 都锚在此。
+- **DSH 版本锚 `0.2.2-rc.1`**：peer（dsh-web / dsh-credentials / schemastery）与 engines 都锚在此。
+- **依赖决策表**：peer = 外置（宿主供给同一实例，运行期共享）；dependencies = 内联自带；devDependencies = 只许 `import type`。唯一事实源是 `package.json`（`scripts/lib/manifest-deps.mjs` 派生 tsdown 三件套），源码导入纪律由 `tests/import-guard.spec.ts` 机械执行。本插件不消费 cordis（无任何 cordis 导入），无 cordis 条目。
 - **行文不用破折号「——」**（zero 知识库行文规范，2026-11-01 起）。

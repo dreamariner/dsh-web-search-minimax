@@ -7,7 +7,7 @@
 // 构建门扫**产物 chunk** 的裸 import，但 devDep 被值导入时会先被 alwaysBundle
 // **内联进产物**（产物里不再有裸 import）→ 构建门看不见；内联 cordis 这类带
 // 模块级注册表的包 = 运行期第二实例，作用域与注册表不跨副本共享，插件静默
-// 失灵（luna-dsh 2026-10-22 事故形态，教训是「cordis 必须 peer + dev 双声明」，
+// 失灵（早期插件仓的实测事故形态，2026-10-22：教训是「cordis 必须 peer + dev 双声明」，
 // 这里把教训沉淀成机械检查：值导入必须先升级声明栏位）。
 // `import type` 类型擦除、零值导入，不受本护栏约束。
 import { describe, expect, it } from 'vitest'

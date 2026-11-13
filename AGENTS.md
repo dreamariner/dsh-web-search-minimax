@@ -41,6 +41,13 @@ pnpm dev            # watch 重建
 pnpm dev:hmr        # host 半边热重载接线
 pnpm profile:add    # link: 安装进 ~/.dsh/profiles/desktop（装前构建 + 登记名单 + 自检）
 pnpm profile:add --npm   # 从 npm 装（发布态）
+
+# ── DSH 实例管理 ──
+pnpm dsh:status     # 实例在跑与否 + 访问地址
+pnpm dsh:start [前台|后台]   # 启动实例（打包版带 --inspect；启动前有构建门）
+pnpm dsh:restart    # 优雅停止后重启（默认后台）
+pnpm dsh:stop       # 优雅停止（inspector 自动应答退出；兜底属主圈定）
+pnpm dsh:probe      # 连实例验证本插件装载且 active（pluginInventory/list）
 ```
 
 ## 红线

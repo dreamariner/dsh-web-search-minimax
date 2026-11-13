@@ -59,17 +59,21 @@ interface Rec {
 /** 一个 import/export 节点的「只绑定类型」判定：语法级，不信正则。
  *  ⚠ 旗标有两层：ExportDeclaration 顶层有 isTypeOnly；ImportDeclaration 没有，
  *  `import type` 的旗标在 importClause.isTypeOnly 上，两层都要查（只查元素级
- *  会漏掉 `import type { X }` 整句形态，只查子句级会漏掉 `{ type X }` 内联形态）。 */
+ *  会漏掉 `import type { X }` 整句形态，只查子句级会漏掉 `{ type X }` 内联形态）。
+ *  ⚠ 只用 ts.isNamedImports / ts.isNamedExports 守卫做窄化，不对联合类型直取
+ *  属性或跨 kind 比较：AST d.ts 的联合形状随 TS 小版本变，守卫 API 稳。 */
 function isTypeOnlyBinding(node: ts.ImportDeclaration | ts.ExportDeclaration): boolean {
-  if (node.isTypeOnly) return true
-  const clause = ts.isImportDeclaration(node) ? node.importClause : node.exportClause
-  if (!clause) return false
-  if (clause.isTypeOnly) return true
-  if (ts.isImportDeclaration(node) && node.importClause?.name) return false // 默认导入 = 值
-  const named = clause.kind === ts.SyntaxKind.NamedImports || clause.kind === ts.SyntaxKind.NamedExports
-    ? clause as ts.NamedImports | ts.NamedExports : undefined
-  if (!named) return false
-  return named.elements.length > 0 && named.elements.every((e) => e.isTypeOnly)
+  if (ts.isImportDeclaration(node)) {
+    const clause = node.importClause
+    if (!clause) return false
+    if (clause.isTypeOnly) return true // `import type { X }` / `import type X` 整句形态
+    if (clause.name) return false // 默认导入 = 值
+    const named = clause.namedBindings !== undefined && ts.isNamedImports(clause.namedBindings) ? clause.namedBindings : undefined
+    return named !== undefined && named.elements.length > 0 && named.elements.every((e) => e.isTypeOnly)
+  }
+  if (node.isTypeOnly) return true // `export type { X } from '…'` 顶层旗标
+  const named = node.exportClause !== undefined && ts.isNamedExports(node.exportClause) ? node.exportClause : undefined
+  return named !== undefined && named.elements.length > 0 && named.elements.every((e) => e.isTypeOnly)
 }
 
 function collectImports(files: Array<{ file: string; half: 'host' | 'client' }>): Rec[] {

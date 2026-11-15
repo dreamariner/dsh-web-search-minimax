@@ -22,7 +22,7 @@
 # 不通用，region 切换）：设置页填的 key 走凭据 seam，~/.dsh/.env 里的走环境层，
 # 两条插件都接上了；未配模型提供商时直接写 ~/.dsh/.env 也可以。
 # 刻意不带 config 块：三个配置项都有默认值，且**刻意不提供 searchMaxResults**——
-# 条数由工具层 tool-web.searchMaxResults 决定（默认 8），插件侧再设同名旋钮会被它
+# 条数由工具层 tool-web.searchMaxResults 决定（0.2.2-rc.2 起默认 10），插件侧再设同名旋钮会被它
 # 单向压住（配大不生效、配小才生效）。
 # 另：留一个空的 `config:` 会让 YAML 解析成 null，没必要。
 - insert:

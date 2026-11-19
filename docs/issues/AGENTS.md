@@ -88,7 +88,7 @@ last-updated: 2026-11-03
 
 | # | type | 标题 | status | priority |
 |---|---|---|---|---|
-| — | — | （暂无） | — | — |
+| 001 | feat | rc.5 适配收尾与生效状态可观测 | doing | P1 |
 
 ## 已完成 Issue
 

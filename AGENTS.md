@@ -19,8 +19,11 @@ MiniMax Coding Plan 搜索接口（`POST {基址}/v1/coding_plan/search`）。�
 
 ## 形态速记
 
-- **单包布局 host 插件**（create-dsh-plugin 生成）：根即插件包，`src/index.ts` 是
-  provider 实现，`src/config.ts` 是配置 schema 与派生逻辑。
+- **单包布局 host 插件 + decoration client 半边**（create-dsh-plugin 生成，client 段后补）：
+  根即插件包，`src/index.ts` 是 provider 实现与生效值自检，`src/config.ts` 是配置 schema
+  与派生逻辑；`src/client/index.tsx` 是插件页状态面板（badge + section，数据走宿主现成
+  remote，无自有 wire 契约），构建分 host（`tsdown.config.ts`）与 client
+  （`tsdown.client.config.ts`，CJS + ModuleLoader 包装）两段。
 - **双区支持**：`region` 切 `cn` / `global`，两区域名与密钥变量互不通用
   （`api.minimaxi.com` / `MINIMAX_CN_API_KEY`，`api.minimax.io` / `MINIMAX_GLOBAL_API_KEY`）；
   `searchKeyEnv` 空串 = 按 region 派生默认名。

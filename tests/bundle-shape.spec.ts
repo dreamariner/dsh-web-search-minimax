@@ -50,4 +50,10 @@ describe('bundle 形态自守', () => {
   it('engines.dsh 声明了支持的 DSH 版本范围', () => {
     expect(pkg.engines?.dsh).toMatch(/^>=/)
   })
+
+  it('client 半边声明齐全（decoration 形态：exports["./client"] + dsh.client，漏一个 client 静默不装载）', () => {
+    expect(pkg.exports?.['./client']).toBe('./lib/client.js')
+    expect(pkg.dsh?.client?.platform).toBe('web')
+    expect(pkg.dsh?.client?.immediately).toBe(true)
+  })
 })

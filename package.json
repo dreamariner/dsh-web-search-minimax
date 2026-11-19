@@ -7,6 +7,7 @@
   "icon": "./icon.svg",
   "exports": {
     ".": "./lib/index.js",
+    "./client": "./lib/client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"
@@ -20,10 +21,10 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && tsdown --config tsdown.client.config.ts",
     "dev": "tsdown --watch",
     "dev:hmr": "node scripts/dev-hmr.mjs",
-    "prepare": "tsdown",
+    "prepare": "tsdown && tsdown --config tsdown.client.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -62,7 +63,9 @@
     "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
     "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
     "@types/node": "^24",
+    "@types/react": "^18.2.0",
     "js-yaml": "^4.1.0",
+    "react": "^18.2.0",
     "tsdown": "^0.22.2",
     "typescript": "^5.9",
     "vitest": "^5.0.3"
@@ -73,6 +76,12 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [],
+      "external": []
     }
   },
   "packageManager": "pnpm@11.7.0",

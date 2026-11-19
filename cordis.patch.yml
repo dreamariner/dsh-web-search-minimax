@@ -11,7 +11,7 @@
 #      没有这个 id 时它是**静默空操作**——插件被跳过，日志里连 warn 都没有
 #      （DSH 的 applyEntryPatches：id 不存在只 warn 后 continue）。
 #   ② **同名行是整块替换，不是深合并**（`target[key] = value`）。所以 `web` 行必须把
-#      config **写全**——base bundle 的 web 行只带 `{fetchProvider: http}`（0.2.2-rc.5 起
+#      config **写全**：base bundle 的 web 行只带 `{fetchProvider: http}`（0.2.2-rc.5 起
 #      base 不再写 searchProvider，未配置时由路由偏好选内置 provider），只写 searchProvider
 #      会把 fetchProvider 一起抹掉。
 #   ③ **patch 行的 `name` 只是守卫**（不匹配就 skip 并 warn），不是设置 name 的途径。

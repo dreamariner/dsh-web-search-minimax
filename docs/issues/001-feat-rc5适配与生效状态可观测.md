@@ -51,10 +51,10 @@ related: []
 
 ## 验收标准
 
-- [ ] `pnpm typecheck` / `pnpm test` / `pnpm build` 全绿
-- [ ] `pnpm dsh:probe` 报本插件 active 且当前生效 provider 判定 = minimax
-- [ ] 设置页 provider 菜单显示 title 与 description（不再裸 id）
-- [ ] 插件页本插件详情出现 badge「搜索生效中」；换提供方后变「未接管搜索」并在日志出 warn
+- [x] `pnpm typecheck` / `pnpm test` / `pnpm build` 全绿（98 tests，2026-11-20）
+- [x] `pnpm dsh:probe` 报本插件 active 且当前生效 provider 判定 = minimax（实机确认，2026-11-20）
+- [x] 设置页 provider 菜单显示 title 与 description（不再裸 id；实测 hasTitle: true，2026-11-20）
+- [x] 插件页本插件详情出现 badge「搜索生效中」+ 三行状态全 ✓（实机截图确认，2026-11-20；切换提供方后的 warn 路径由 15 条测试覆盖，实机未逐一手动触发）
 - [ ] 发版（bump 0.1.3 + tag + npm publish）单独确认后执行
 
 ## 依赖
@@ -64,3 +64,7 @@ related: []
 ## 进度日志
 
 - 2026-11-20  jianan  创建，开工
+- 2026-11-20  jianan  host 半边完成并提交（6e50b95）：provider 三补（ready? / title / description）+ 生效值自检（describe 扫描三态判定 + document-updated 防抖重判 + probe 扩展）+ 文案修正；98 tests 全绿
+- 2026-11-20  jianan  client 半边完成并提交（394fcf1）：插件页 badge + section（decoration 形态，exports[./client] + dsh.client + tsdown.client.config），数据走宿主现成 remote，零 wire 契约
+- 2026-11-20  jianan  实机联调三修并提交（f771746）：typert remote 信封 { ok, value } 解包（官方卡片同款）；事件面取外层 ctx.remote 的 $on（scoped narrow face 没有）；document-updated 防抖（boot 5ms 内 6 发实测）+ 面板挂载自愈与 unknown 重试。实机确认 badge「搜索生效中」+ 三行全 ✓
+- 2026-11-20  jianan  待办：发版（0.1.3 + tag + npm publish）等人工确认

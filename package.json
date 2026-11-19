@@ -76,5 +76,6 @@
     }
   },
   "packageManager": "pnpm@11.7.0",
+  "dshVersion": "0.2.2-rc.5",
   "homepage": "https://github.com/dreamariner/dsh-web-search-minimax"
 }

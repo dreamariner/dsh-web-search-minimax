@@ -416,6 +416,28 @@ async function probe() {
   if (mine.length === 0) { console.error(`[dsh-ctl] ✗ 插件未装载（未登记 / lib 缺失 / 装载报错，查实例日志与 plugin.log）`); process.exit(5) }
   if (!mine.every((e) => e.fiberPhase === 'active')) { console.error('[dsh-ctl] ✗ 已装载但非 active（pending/failed，查装载日志）'); process.exit(4) }
   console.log('[dsh-ctl] ✓ 插件已装载且 active')
+  // 生效值判定：读 settings remote 的 describe（volatile 字段实时生效值），识别 web
+  // 条目（value 带 searchProvider / fetchProvider 键，或 schema 声明里带 searchProvider）。
+  // 未设值时 projectForm 会整体省略 searchProvider 键，value 只剩 fetchProvider（自动模式）。
+  // 判定口径与插件日志的「生效自检」一致。
+  try {
+    const desc = await call('settings/describe')
+    const rows = desc?.namespaces ?? []
+    const mentions = (o) => o !== null && typeof o === 'object' && ('searchProvider' in o || 'fetchProvider' in o)
+    const hit = rows.find((r) => mentions(r?.value)
+      || (r?.schema !== null && typeof r?.schema === 'object' && JSON.stringify(r.schema).includes('"searchProvider"')))
+    if (hit === undefined) {
+      console.log('[dsh-ctl] · 生效值：settings 里找不到 web 条目，无法验证当前提供方')
+    } else {
+      const sp = hit.value?.searchProvider
+      const where = `（settings 条目 ${hit.ns}）`
+      if (sp === 'minimax') console.log(`[dsh-ctl] ✓ 当前网页搜索提供方 = minimax（本插件生效中）${where}`)
+      else if (sp === undefined || sp === '') console.log(`[dsh-ctl] ⚠ 未显式配置网页搜索提供方（自动模式，rc.5 起内置 provider 按路由接管）${where}`)
+      else console.log(`[dsh-ctl] ⚠ 当前网页搜索提供方 = ${sp}，不是本插件${where}`)
+    }
+  } catch (e) {
+    console.log(`[dsh-ctl] · 生效值判定跳过（settings/describe 不可用：${e?.message ?? e}）`)
+  }
 }
 
 /** 只有被直接执行时才走 CLI（作为模块 import 时不跑）：导出面供护栏测试用。 */

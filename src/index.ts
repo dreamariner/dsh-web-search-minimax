@@ -53,6 +53,75 @@ export const PROVIDER_ID = 'minimax'
 /** MiniMax 接口的硬上限：单次最多 10 条，不支持分页。 */
 export const API_HARD_CAP = 10
 
+/** provider 展示名（设置页 provider 菜单用：第三方 provider 显示 title ?? id，不补就是裸 id）。
+ *  静态串只能选一种语言，公开仓面向 npm 用英文。 */
+export const PROVIDER_TITLE = 'MiniMax Web Search'
+
+/** provider 说明（双语 LocalizedText，选中本插件时显示在设置页 provider 菜单下方）。
+ *  口径：装上即配好（patch 随插件走）；生效值不是本插件时给出精确到设置页的切换路径。 */
+export const PROVIDER_DESCRIPTION = {
+  en: 'Uses the MiniMax Coding Plan search API, sharing the key with the MiniMax model provider in settings. Installing this plugin automatically sets the search provider to MiniMax via its bundled patch; no manual profile editing needed. If the effective provider is not MiniMax (switched in settings, or a profile overlay overrides the web row), open the Plugins page → Built-in plugin configuration → Web search and fetch, and set the web search provider back to MiniMax.',
+  zh: '走 MiniMax Coding Plan 搜索接口，密钥与「设置 → 模型」的 MiniMax 提供商共用。安装本插件即自动把搜索提供方设为 MiniMax（patch 随插件生效），无需手动改 profile。若当前生效值不是 MiniMax（在设置页换过提供方，或 profile 有覆盖 web 行的 overlay），到 插件页 → 内置插件配置 → 网页搜索与获取，把「网页搜索提供方」切回 MiniMax。',
+} as const
+
+/** 生效自检的统一切换指引（warn 日志与 description 同口径）。 */
+const SWITCH_HINT = '插件页（左侧栏「插件」）→ 内置插件配置 → 网页搜索与获取 → 把「网页搜索提供方」切回 MiniMax'
+
+/** 生效自检的判定结果。 */
+export type Effectiveness =
+  | { state: 'serving'; provider: 'minimax' }
+  | { state: 'superseded'; provider: string }
+  | { state: 'auto'; provider: undefined }
+  | { state: 'unknown'; provider: undefined }
+
+/**
+ * 从 settings.describe() 的 descriptor 列表判定当前生效的网页搜索提供方。
+ *
+ * 识别 web 条目不写死条目 id（防自定义 profile 用别的 id 挂 web）：schema 声明里带
+ * searchProvider，或 value 带 searchProvider / fetchProvider 键即算命中。value 识别
+ * 尤其必要：settings 的 projectForm 会**整体省略**未设值的键，所以自动模式下 web 条目
+ * 的 value 只有 `{fetchProvider: http}`，searchProvider 键根本不存在。
+ * 命中后按 searchProvider 生效值三态：minimax = serving；其他非空串 = superseded；
+ * 缺省 = auto（rc.5 起按模型路由选内置 provider，本插件不参与）。
+ * 找不到任何 web 条目 = unknown（settings 不在位 / web 条目没进 settings 视野）。
+ */
+export function judgeEffectiveness(descriptors: unknown): Effectiveness {
+  const rows = Array.isArray(descriptors) ? descriptors : []
+  const valueMentions = (obj: unknown): boolean =>
+    obj !== null && typeof obj === 'object'
+    && ('searchProvider' in (obj as object) || 'fetchProvider' in (obj as object))
+  // 表单 schema 是 JSON 形状（dict 键名），串化后查声明最稳，不依赖具体结构
+  const schemaMentions = (schema: unknown): boolean =>
+    schema !== null && typeof schema === 'object' && JSON.stringify(schema).includes('"searchProvider"')
+  for (const row of rows) {
+    const r = row as { value?: unknown; schema?: unknown } | undefined
+    if (!valueMentions(r?.value) && !schemaMentions(r?.schema)) continue
+    const sp = (r?.value as { searchProvider?: unknown } | undefined)?.searchProvider
+    if (sp === PROVIDER_ID) return { state: 'serving', provider: PROVIDER_ID }
+    if (typeof sp === 'string' && sp !== '') return { state: 'superseded', provider: sp }
+    return { state: 'auto', provider: undefined }
+  }
+  return { state: 'unknown', provider: undefined }
+}
+
+/** 生效自检结果落日志。 */
+function logEffectiveness(log: (level: 'info' | 'warn', msg: string) => void, verdict: Effectiveness): void {
+  switch (verdict.state) {
+    case 'serving':
+      log('info', `生效自检：当前网页搜索提供方 = ${PROVIDER_ID}，本插件正在接管搜索`)
+      break
+    case 'superseded':
+      log('warn', `生效自检：当前网页搜索提供方 = ${verdict.provider}，不是本插件；如需 MiniMax：${SWITCH_HINT}`)
+      break
+    case 'auto':
+      log('warn', `生效自检：未显式配置网页搜索提供方（自动模式），0.2.2-rc.5 起按模型路由选内置 provider，本插件不参与；如需 MiniMax：${SWITCH_HINT}`)
+      break
+    case 'unknown':
+      log('info', '生效自检：settings 里找不到带 searchProvider 的条目，无法验证当前提供方；可 pnpm dsh:probe 或到设置页人工确认')
+      break
+  }
+}
+
 /** 插件日志。路径来自配置（默认经 DSH_HOME 派生），**不可硬编码** —— 否则测试会写进
  *  真实运行时目录，污染实际运行日志（tests/setup.ts 的隔离护栏就靠 DSH_HOME 生效）。 */
 const makeLog = (path: string) => (level: 'info' | 'warn', msg: string): void => {
@@ -173,16 +242,55 @@ export function apply(ctx: any, rawConfig?: Partial<WebSearchMinimaxConfig> | nu
 
   const provider: WebSearchProvider = {
     id: PROVIDER_ID,
+    // 设置页 provider 菜单的人话名字与说明（第三方 provider 显示 title ?? id，不补就是裸 id）。
+    title: PROVIDER_TITLE,
+    description: PROVIDER_DESCRIPTION,
     // 接口注释明写：廉价本地可用性检查，不得发网络请求。
     // seam 的 resolve 是异步的，available() 判不了托管存储里的值，所以判「有无途径」：
     // 环境层能同步读到 → 可用；读不到但 seam 在场 → 托管存储里可能有值（设置页填过），
     // 真正的缺失留到 search() 报更具体的 MINIMAX_SEARCH_KEY_MISSING。
     available: () => resolveKey(keyEnv) !== undefined || credentials !== undefined,
+    // ready?(llmProvider)：seam 的 searchReady() 只问会被选中的 provider，答案进
+    // dsh-tool-web 的注册条件。密钥没配时答 false → web_search 不准入该模型步骤：
+    // 工具不出现（模型看不到它），而不是出现但每次调用撞 MINIMAX_SEARCH_KEY_MISSING。
+    // 同样纯本地零网络；异步才判得了托管存储，这正是 available()（同步）答不了的部分。
+    ready: async () => (await resolveSecret(keyEnv)) !== undefined,
     search: (request: WebSearchRequest, signal?: AbortSignal) => runSearch(cfg, request, signal, log, resolveSecret),
   }
 
   web.registerSearchProvider(provider)
-  log('info', `provider 已注册：${PROVIDER_ID}。profile 的 web 行必须显式设 searchProvider: ${PROVIDER_ID}，否则与内置 provider 并存会撞 WEB_PROVIDER_AMBIGUOUS`)
+  log('info', `provider 已注册：${PROVIDER_ID}。搜索提供方已随本插件 patch 自动设为 ${PROVIDER_ID}（装上即配好，无需手动改 profile）；若 profile 无 web 行或被后续 overlay 整块替换，此设置不生效（0.2.2-rc.5 起静默，搜索会走内置 provider）`)
+
+  // 生效值自检：settings 服务在位即判；未就绪经 inject 等它可用（cordis 会挂起回调直至服务出现）。
+  const selfCheck = (settings: unknown): void => {
+    const s = settings as { describe?: () => unknown } | undefined
+    if (s === undefined || typeof s.describe !== 'function') {
+      log('info', '生效自检：settings 服务不可用（精简组合？），无法验证当前网页搜索提供方；可 pnpm dsh:probe 或到设置页人工确认')
+      return
+    }
+    let rows: unknown
+    try { rows = s.describe() } catch (e) {
+      log('info', `生效自检：settings.describe 抛错（${(e as Error).message}），无法验证当前提供方`)
+      return
+    }
+    logEffectiveness(log, judgeEffectiveness(rows))
+  }
+  const settingsNow: unknown = ctx.get?.('settings')
+  if (settingsNow !== undefined) {
+    selfCheck(settingsNow)
+  } else if (typeof ctx.inject === 'function') {
+    ctx.inject(['settings'], (scoped: any) => selfCheck(scoped?.settings ?? scoped))
+  } else {
+    log('info', '生效自检：settings 服务不可用（精简组合？），无法验证当前网页搜索提供方；可 pnpm dsh:probe 或到设置页人工确认')
+  }
+  // 配置变更重判：用户在设置页切提供方会触发 settings/document-updated，重读 describe 即可。
+  // 跨插件事件用普通 ctx.on 即可收到（dsh-notify 监听 session/event 同款），随插件 fiber 自动注销。
+  if (typeof ctx.on === 'function') {
+    ctx.on('settings/document-updated', () => {
+      const s: unknown = ctx.get?.('settings')
+      if (s !== undefined) selfCheck(s)
+    })
+  }
 }
 
 async function runSearch(

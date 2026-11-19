@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "MiniMax Web Search",
-    "description": "MiniMax web search provider for DeepSeek Harness: uses the MiniMax Coding Plan search API with the same key as your MiniMax model provider in DSH settings (CN / international via region)."
+    "description": "MiniMax web search provider for DeepSeek Harness: uses the MiniMax Coding Plan search API with the same key as your MiniMax model provider in DSH settings (CN / international via region). Installing this plugin takes over the search provider automatically; to verify or switch it, see the Plugins page → Built-in plugin configuration → Web search and fetch."
   }
 }

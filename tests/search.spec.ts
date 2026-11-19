@@ -81,6 +81,33 @@ describe('provider 契约', () => {
     expect(provider.available()).toBe(false)
   })
 
+  it('ready()：环境层有密钥时为 true 且不发网络（searchReady 链路据此准入 web_search）', async () => {
+    const { provider, fetchMock } = mount()
+    await expect(provider.ready?.('deepseek-official')).resolves.toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('ready()：密钥缺失时为 false（web_search 不准入，模型看不到工具而不是反复报错）', async () => {
+    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' })
+    await expect(provider.ready?.(undefined)).resolves.toBe(false)
+  })
+
+  it('ready()：凭据 seam 有值时为 true（托管存储只有 seam 读得到，同步 available() 判不了）', async () => {
+    const credentials = { resolve: async () => ({ value: 'sk-from-seam' }) }
+    const { provider, fetchMock } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' }, { credentials })
+    await expect(provider.ready?.(undefined)).resolves.toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('title / description 已补（第三方 provider 显示 title ?? id；说明双语并带切换路径）', () => {
+    const { provider } = mount()
+    expect(provider.title).toBe('MiniMax Web Search')
+    expect(typeof provider.description?.en).toBe('string')
+    expect(typeof provider.description?.zh).toBe('string')
+    expect(provider.description?.zh).toContain('网页搜索与获取')
+    expect(provider.description?.zh).toContain('自动把搜索提供方设为 MiniMax')
+  })
+
   it('ctx.web 不可用时报错（而不是静默不注册）', () => {
     expect(() => apply({} as any, {})).toThrow(/ctx\.web 不可用/)
   })

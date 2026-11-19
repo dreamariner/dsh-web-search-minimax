@@ -44,7 +44,7 @@ export interface WebSearchMinimaxConfig {
   searchKeyEnv: string
   /** 单次搜索的请求超时（工具侧另有 60s 预算，这里留出余量） */
   searchTimeoutMs: number
-  // 刻意不提供「来源条数」配置：条数由工具层 tool-web.searchMaxResults 决定（默认 8），
+  // 刻意不提供「来源条数」配置：条数由工具层 tool-web.searchMaxResults 决定（0.2.2-rc.2 起默认 10），
   // provider 侧再设一个同名旋钮只会与它争主权且永远不生效。
   /**
    * 插件日志落盘路径；空串 = 在 apply() 时按 DSH_HOME 惰性派生。

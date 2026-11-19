@@ -38,7 +38,10 @@ describe('bundle 形态自守', () => {
   })
 
   it('web 行住在本包且两个字段写全（整块替换不深合并，漏一个抹一个）', () => {
-    // searchProvider 归属跟着本插件走；fetchProvider 必须一起写全，否则 base 的值被抹掉
+    // searchProvider 归属跟着本插件走；fetchProvider 必须一起写全，否则 base 的值被抹掉。
+    // 这条也是 0.2.2-rc.5 静默接管的防线：rc.5 的 base bundle 不再写 searchProvider，
+    // preferredId 路由兜底会在未显式配置时静默选内置 DeepSeek provider（不再报
+    // WEB_PROVIDER_AMBIGUOUS）—— 本包 patch 必须永远显式带上 searchProvider: minimax。
     const text = readFileSync(join(ROOT, 'cordis.patch.yml'), 'utf8')
     expect(text).toMatch(/^- id: web[\s\S]*?searchProvider:\s*minimax/m)
     expect(text).toMatch(/^- id: web[\s\S]*?fetchProvider:\s*http/m)

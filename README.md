@@ -39,7 +39,7 @@ lifecycle）；`pnpm add <spec> --dir <profile>`；把包名幂等追加进 prof
 
 ## 配置
 
-插件自带一行自挂载 patch，其中包含 `web` 行接线（**必须随插件走**：不显式配 `searchProvider` 会与内置 provider 并存撞 `WEB_PROVIDER_AMBIGUOUS`，搜索全废）：
+插件自带一行自挂载 patch，其中包含 `web` 行接线（**必须随插件走**：安装即把 `searchProvider` 设为 `minimax`；0.2.2-rc.5 起未显式配置时内置 provider 会按模型路由静默接管搜索，不再报 `WEB_PROVIDER_AMBIGUOUS`）：
 
 ```yaml
 - id: web

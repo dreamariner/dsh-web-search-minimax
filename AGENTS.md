@@ -35,7 +35,7 @@ MiniMax Coding Plan 搜索接口（`POST {基址}/v1/coding_plan/search`）。�
 
 ```sh
 pnpm build          # tsdown 单文件构建（lib/index.js）
-pnpm test           # 54 用例（provider 契约 / 失败分支 / 配置守卫 / 展示元数据）
+pnpm test           # 76 用例（provider 契约 / 失败分支 / 生效自检 / 配置守卫 / 展示元数据）
 pnpm typecheck
 pnpm dev            # watch 重建
 pnpm dev:hmr        # host 半边热重载接线
@@ -47,14 +47,14 @@ pnpm dsh:status     # 实例在跑与否 + 访问地址
 pnpm dsh:start [前台|后台]   # 启动实例（打包版带 --inspect；启动前有构建门）
 pnpm dsh:restart    # 优雅停止后重启（默认后台）
 pnpm dsh:stop       # 优雅停止（inspector 自动应答退出；兜底属主圈定）
-pnpm dsh:probe      # 连实例验证本插件装载且 active（pluginInventory/list）
+pnpm dsh:probe      # 连实例验证本插件装载且 active，并报当前生效的网页搜索提供方判定
 ```
 
 ## 红线
 
 - **lib 不入库**：`.gitignore` 锚定为 `/lib/`（勿改回裸 `lib/`，会任意深度匹配误伤 `scripts/lib/`）。
 - **发布面不含 src**：`files` 白名单与 `exports` 都不带源码。
-- **available() 不得发网络请求**：接口明写的契约，密钥检查只走本地。
+- **available() / ready? 不得发网络请求**：接口明写的契约，检查只走本地（ready? 的密钥判定走 resolveSecret，同样零网络）。
 - **密钥值不进配置**：配置只存变量名，值只在 `~/.dsh/.env` 或设置页托管存储。
 - **DSH 版本锚 `0.2.2-rc.5`**：peer（dsh-web / dsh-credentials / schemastery）与 engines 都锚在此。
 - **依赖决策表**：peer = 外置（宿主供给同一实例，运行期共享）；dependencies = 内联自带；devDependencies = 只许 `import type`。唯一事实源是 `package.json`（`scripts/lib/manifest-deps.mjs` 派生 tsdown 三件套），源码导入纪律由 `tests/import-guard.spec.ts` 机械执行。本插件不消费 cordis（无任何 cordis 导入），无 cordis 条目。

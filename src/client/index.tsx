@@ -121,6 +121,8 @@ export interface Snapshot {
   status: Status
   /** provider 是否已注册（listProviders 里有 minimax）。 */
   registered: boolean
+  /** 读取失败时的诊断信息（仅失败态渲染在面板上，正常态无值）。 */
+  debug?: string
   /** 设置页托管密钥的查询结论：undefined = 尚未查询 / 无法查询。 */
   keyConfigured?: boolean
   /** 命中的密钥变量名（keyConfigured 为 true 时有意义）。 */
@@ -129,11 +131,14 @@ export interface Snapshot {
 
 /** controller 的依赖面（窄化：只声明用到的东西，测试易 mock）。 */
 interface ControllerDeps {
-  /** 宿主聚合 remote（web / settings / credentials 命名空间 + $on 事件面）。 */
+  /** 数据面：宿主聚合 remote（web / settings / credentials 命名空间，来自 inject 的 scoped）。 */
   remote?: {
     web?: { listProviders: () => Promise<any> }
     settings?: { describe: () => Promise<any> }
     credentials?: { describe: (names: readonly string[]) => Promise<any> }
+  }
+  /** 事件面：$on 所在的聚合对象（外层 ctx.remote；scoped 的 narrow face 没有它）。 */
+  events?: {
     $on?: (event: string, cb: (...args: unknown[]) => void) => (() => void) | void
   }
   /** cordis 事件（connection/reset 等非转发事件走普通 ctx.on）。 */
@@ -150,13 +155,25 @@ function createController(deps: ControllerDeps) {
 
   const read = async (): Promise<void> => {
     try {
-      const list = await deps.remote?.web?.listProviders()
+      // listProviders 不可用（命名空间没挂全 / remote 面 unexpected）按 unknown 处理，
+      // 别把环境问题误判成「未注册」
+      if (typeof deps.remote?.web?.listProviders !== 'function') {
+        const keys = deps.remote && typeof deps.remote === 'object' ? Object.keys(deps.remote).join(',') : String(deps.remote)
+        publish({ status: { kind: 'unknown' }, registered: false,
+          debug: `guard: remote=${typeof deps.remote} keys=[${keys}] web=${typeof deps.remote?.web} list=${typeof deps.remote?.web?.listProviders}` })
+        return
+      }
+      // typert remote 客户端返回信封 { ok, value }（官方卡片 response.ok / response.value
+      // 同款）：ok 通过才取 value，否则按读取失败处理，别拿信封当载荷
+      const listResponse = await deps.remote.web.listProviders() as { ok?: boolean; value?: any } | undefined
+      const list = listResponse?.ok === true ? listResponse.value : undefined
       const registered = (list?.search ?? []).some((p: any) => p?.id === PROVIDER_ID)
       if (!registered) { publish({ status: { kind: 'not-registered' }, registered: false }); return }
       // 生效值：settings 不可读不算失败，按 unknown 呈现（与「注册了但读不到配置」区分开）
       let effective: { hit: boolean; effective: string | undefined } = { hit: false, effective: undefined }
       try {
-        const desc = await deps.remote?.settings?.describe()
+        const descResponse = await deps.remote?.settings?.describe() as { ok?: boolean; value?: any } | undefined
+        const desc = descResponse?.ok === true ? descResponse.value : undefined
         effective = readEffective(desc?.namespaces)
       } catch { /* 保持 miss */ }
       const status: Status = !effective.hit
@@ -186,14 +203,24 @@ function createController(deps: ControllerDeps) {
   return {
     get snapshot(): Snapshot { return snapshot },
     subscribe(l: () => void): () => void { listeners.add(l); return () => { listeners.delete(l) } },
-    /** 事件订阅；返回清理函数（ctx.effect 的资源纪律）。 */
+    /** 手动触发一轮读取（组件挂载时自愈暂态旧快照用）。 */
+    refresh(): void { void read() },
+    /** 事件订阅 + unknown 自愈重试；返回清理函数（ctx.effect 的资源纪律）。 */
     start(): () => void {
       void read()
       const disposers = [
-        deps.remote?.$on?.('web/providers-changed', () => { void read() }),
-        deps.remote?.$on?.('settings/document-updated', () => { void read() }),
+        deps.events?.$on?.('web/providers-changed', () => { void read() }),
+        deps.events?.$on?.('settings/document-updated', () => { void read() }),
         deps.on?.('connection/reset', () => { void read() }),
       ]
+      // unknown 自愈：remote 命名空间的挂载顺序不受本插件控制（api-remotes 异步
+      // $mount），读早了会 unknown；2s 一试、15s 封顶，成功（非 unknown）即停。
+      const retry = setInterval(() => {
+        if (snapshot.status.kind !== 'unknown') { clearInterval(retry); return }
+        void read()
+      }, 2000)
+      const stop = setTimeout(() => clearInterval(retry), 15_000)
+      disposers.push(() => { clearInterval(retry); clearTimeout(stop) })
       return () => { for (const d of disposers) if (typeof d === 'function') d() }
     },
   }
@@ -229,12 +256,15 @@ const badgeStyle: React.CSSProperties = {
 
 function StatusBadge(props: any): React.ReactElement | null {
   const snapshot = useLive(props.controller)
+  // 挂载即重读：实例启动窗口里装载的旧快照（比如注册完成前的那次读取）自愈
+  useEffect(() => { props.controller?.refresh?.() }, [props.controller])
   if (!isOurBundlePage(props?.subject)) return null
   return <span style={badgeStyle}>{badgeText(snapshot.status)}</span>
 }
 
 function StatusSection(props: any): React.ReactElement | null {
   const snapshot = useLive(props.controller)
+  useEffect(() => { props.controller?.refresh?.() }, [props.controller])
   if (!isOurBundlePage(props?.subject)) return null
   const { rows, hint } = sectionContent(snapshot)
   return (
@@ -242,6 +272,9 @@ function StatusSection(props: any): React.ReactElement | null {
       style={{ border: '1px solid currentColor', borderRadius: 8, opacity: 0.92, padding: '10px 14px', margin: '10px 0' }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>MiniMax 搜索状态</div>
       {rows.map((row) => <Row key={row.name} {...row} />)}
+      {snapshot.debug !== undefined && (
+        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6, wordBreak: 'break-all' }}>debug: {snapshot.debug}</div>
+      )}
       {hint !== undefined && <div style={{ fontSize: 13, lineHeight: 1.7, marginTop: 6 }}>未生效：{hint}</div>}
     </section>
   )
@@ -256,10 +289,17 @@ export function apply(rawCtx: unknown): void {
   if (slots === undefined) throw new Error(`[${PLUGIN_PACKAGE}] ctx.slots 不可用：inject 白名单与宿主实际提供不一致`)
   if (remote === undefined) throw new Error(`[${PLUGIN_PACKAGE}] ctx.remote 不可用：inject 白名单与宿主实际提供不一致`)
 
-  // 等 web / settings / credentials 三个命名空间就绪再注册槽位（dsh-image-design 同款）；
-  // 精简组合缺其中之一时回调不触发，面板不出现（不报错、不影响 host 半边）。
+  // 等 web / settings / credentials 三个命名空间就绪再注册槽位（就绪门，dsh-image-design
+  // 同款）；精简组合缺其中之一时回调不触发，面板不出现（不报错、不影响 host 半边）。
+  // 两轮实测定下的取面：**数据走 scoped.remote**（narrow face，listProviders / describe
+  // 可用），**事件走外层 ctx.remote**（$on 只在聚合对象上，scoped 没有它；上一版把事件
+  // 也挂 scoped 结果 providers-changed 收不到，badge 停在启动窗口的旧快照）。
   ctx.inject(['remote.web', 'remote.settings', 'remote.credentials'], (scoped: any) => {
-    const controller = createController({ remote: scoped?.remote, on: ctx.on })
+    const controller = createController({
+      remote: scoped?.remote ?? ctx.remote,
+      events: scoped?.remote?.$on !== undefined ? scoped.remote : ctx.remote,
+      on: ctx.on,
+    })
     ctx.effect(() => controller.start(), `${PLUGIN_PACKAGE}: status controller`)
     slots.inject('plugins.detail.badge', () => slots.register(
       { name: 'plugins.detail.badge', id: 'web-search-minimax-badge', inject: () => ({ controller }) },

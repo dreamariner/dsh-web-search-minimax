@@ -124,7 +124,7 @@ describe('apply 接线（生效自检 + 变更重判）', () => {
     expect(logs(lf).some((l) => l.includes('本插件正在接管搜索'))).toBe(true)
   })
 
-  it('settings/document-updated 事件触发重判（先 serving 后切走，日志出两行）', () => {
+  it('document-updated 连发被防抖合并：两次触发只多一行重判（读最新值）', async () => {
     const rows = { current: [{ ns: 'web', value: { searchProvider: 'minimax' } }] }
     const settings = { describe: () => rows.current }
     const { ctx, lf } = mountWith(settings)
@@ -132,10 +132,11 @@ describe('apply 接线（生效自检 + 变更重判）', () => {
     expect(listener).toBeTypeOf('function')
     listener()
     rows.current = [{ ns: 'web', value: { searchProvider: 'deepseek-search-api' } }]
-    listener()
+    listener() // 300ms 内连发 → 合并
+    await new Promise((r) => setTimeout(r, 420))
     const effect = logs(lf).filter((l) => l.includes('生效自检：'))
-    expect(effect.length).toBe(3) // 首判 + 两次重判
-    expect(effect.at(-1)).toContain('deepseek-search-api')
-    expect(effect.at(-1)).toContain('[warn]')
+    expect(effect.length).toBe(2) // 首判 + 合并后的一次重判（trailing 读最新值）
+    expect(effect[1]).toContain('deepseek-search-api')
+    expect(effect[1]).toContain('[warn]')
   })
 })

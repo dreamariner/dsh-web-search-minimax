@@ -96,8 +96,8 @@ describe('sectionContent（三行状态 + 指引）', () => {
 
 describe('apply 接线（槽位注册 + controller 生命周期）', () => {
   const okRemotes = () => ({
-    web: { listProviders: vi.fn(async () => ({ search: [{ id: PROVIDER_ID }, { id: 'deepseek-official' }] })) },
-    settings: { describe: vi.fn(async () => ({ namespaces: [{ ns: 'web', value: { searchProvider: 'minimax' } }] })) },
+    web: { listProviders: vi.fn(async () => ({ ok: true, value: { search: [{ id: PROVIDER_ID }, { id: 'deepseek-official' }] } })) },
+    settings: { describe: vi.fn(async () => ({ ok: true, value: { namespaces: [{ ns: 'web', value: { searchProvider: 'minimax' } }] } })) },
     credentials: { describe: vi.fn(async () => ({ ok: true, value: { MINIMAX_CN_API_KEY: { configured: true } } })) },
   })
 
@@ -153,7 +153,7 @@ describe('apply 接线（槽位注册 + controller 生命周期）', () => {
 
   it('未注册（listProviders 无 minimax）→ not-registered', async () => {
     const remotes = okRemotes()
-    remotes.web.listProviders = vi.fn(async () => ({ search: [{ id: 'deepseek-official' }] }))
+    remotes.web.listProviders = vi.fn(async () => ({ ok: true, value: { search: [{ id: 'deepseek-official' }] } }))
     const { registered, settle } = mountClient(remotes)
     await settle()
     expect(registered[0].inject().controller.snapshot.status.kind).toBe('not-registered')
@@ -163,7 +163,7 @@ describe('apply 接线（槽位注册 + controller 生命周期）', () => {
     const remotes = okRemotes()
     const { registered, remoteEvents, settle } = mountClient(remotes)
     await settle()
-    remotes.settings.describe = vi.fn(async () => ({ namespaces: [{ ns: 'web', value: { searchProvider: 'deepseek-official' } }] }))
+    remotes.settings.describe = vi.fn(async () => ({ ok: true, value: { namespaces: [{ ns: 'web', value: { searchProvider: 'deepseek-official' } }] } }))
     for (const cb of remoteEvents['settings/document-updated']) cb()
     await settle()
     const controller = registered[0].inject().controller
@@ -181,6 +181,18 @@ describe('apply 接线（槽位注册 + controller 生命周期）', () => {
     expect(snapshot.status.kind).toBe('unknown')
     expect(snapshot.keyConfigured).toBeUndefined()
     expect(sectionContent(snapshot).rows[2].value).toContain('无法查询')
+  })
+
+  it('refresh() 手动重读：设置页切走后组件挂载路径也能自愈旧快照', async () => {
+    const remotes = okRemotes()
+    const { registered, settle } = mountClient(remotes)
+    await settle()
+    const controller = registered[0].inject().controller
+    expect(controller.snapshot.status.kind).toBe('serving')
+    remotes.settings.describe = vi.fn(async () => ({ ok: true, value: { namespaces: [{ ns: 'web', value: { searchProvider: 'deepseek-official' } }] } }))
+    controller.refresh()
+    await settle()
+    expect(controller.snapshot.status.kind).toBe('superseded')
   })
 
   it('effect 清理函数注销事件订阅（插件卸载资源纪律）', async () => {

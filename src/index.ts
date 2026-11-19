@@ -285,10 +285,17 @@ export function apply(ctx: any, rawConfig?: Partial<WebSearchMinimaxConfig> | nu
   }
   // 配置变更重判：用户在设置页切提供方会触发 settings/document-updated，重读 describe 即可。
   // 跨插件事件用普通 ctx.on 即可收到（dsh-notify 监听 session/event 同款），随插件 fiber 自动注销。
+  // 事件在启动期会连发（宿主与各客户端的每次 describe 都可能触发 document-updated，
+  // 实测 boot 窗口 5ms 内 6 发），trailing 防抖 300ms 合并成一次，日志不再刷屏。
   if (typeof ctx.on === 'function') {
+    let recheckTimer: ReturnType<typeof setTimeout> | undefined
     ctx.on('settings/document-updated', () => {
-      const s: unknown = ctx.get?.('settings')
-      if (s !== undefined) selfCheck(s)
+      if (recheckTimer !== undefined) return
+      recheckTimer = setTimeout(() => {
+        recheckTimer = undefined
+        const s: unknown = ctx.get?.('settings')
+        if (s !== undefined) selfCheck(s)
+      }, 300)
     })
   }
 }

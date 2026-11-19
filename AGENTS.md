@@ -38,7 +38,7 @@ MiniMax Coding Plan 搜索接口（`POST {基址}/v1/coding_plan/search`）。�
 
 ```sh
 pnpm build          # tsdown 单文件构建（lib/index.js）
-pnpm test           # 76 用例（provider 契约 / 失败分支 / 生效自检 / 配置守卫 / 展示元数据）
+pnpm test           # 98 用例（provider 契约 / 失败分支 / 生效自检 / 状态面板 / 配置守卫 / 展示元数据）
 pnpm typecheck
 pnpm dev            # watch 重建
 pnpm dev:hmr        # host 半边热重载接线

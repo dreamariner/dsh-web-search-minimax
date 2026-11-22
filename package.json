@@ -24,17 +24,17 @@
   "scripts": {
     "build": "tsdown && tsdown --config tsdown.client.config.ts",
     "dev": "tsdown --watch",
-    "dev:hmr": "node scripts/dev-hmr.mjs",
+    "dev:hmr": "dsh-ctl dev-hmr",
     "prepare": "tsdown && tsdown --config tsdown.client.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "profile:add": "node scripts/profile-add.mjs",
-    "dsh:start": "node scripts/dsh-ctl.mjs start",
-    "dsh:restart": "node scripts/dsh-ctl.mjs restart",
-    "dsh:stop": "node scripts/dsh-ctl.mjs stop",
-    "dsh:status": "node scripts/dsh-ctl.mjs status",
-    "dsh:probe": "node scripts/dsh-ctl.mjs probe"
+    "profile:add": "dsh-ctl profile-add",
+    "dsh:start": "dsh-ctl start",
+    "dsh:restart": "dsh-ctl restart",
+    "dsh:stop": "dsh-ctl stop",
+    "dsh:status": "dsh-ctl status",
+    "dsh:probe": "dsh-ctl probe"
   },
   "keywords": [
     "dsh",
@@ -54,15 +54,16 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@deepseek-ai/schemastery": ">=3.19.0 <4.0.0-0",
+    "@deepseek-ai/dsh-credentials": ">=0.2.2-rc.5 <0.3.0-0",
     "@deepseek-ai/dsh-web": ">=0.2.2-rc.5 <0.3.0-0",
-    "@deepseek-ai/dsh-credentials": ">=0.2.2-rc.5 <0.3.0-0"
+    "@deepseek-ai/schemastery": ">=3.19.0 <4.0.0-0"
   },
   "devDependencies": {
-    "@deepseek-ai/schemastery": "3.19.0",
-    "@deepseek-ai/dsh-web": "0.2.2-rc.5",
     "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
     "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-web": "0.2.2-rc.5",
+    "@deepseek-ai/schemastery": "3.19.0",
+    "@dreamariner/dsh-ctl": "link:../create-dsh-plugin/packages/dsh-ctl",
     "@types/node": "^24",
     "@types/react": "^18.2.0",
     "js-yaml": "^4.1.0",

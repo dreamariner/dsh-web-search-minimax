@@ -60,5 +60,5 @@ pnpm dsh:probe      # 连实例验证本插件装载且 active，并报当前生
 - **available() / ready? 不得发网络请求**：接口明写的契约，检查只走本地（ready? 的密钥判定走 resolveSecret，同样零网络）。
 - **密钥值不进配置**：配置只存变量名，值只在 `~/.dsh/.env` 或设置页托管存储。
 - **DSH 版本锚 `0.2.2-rc.5`**：peer（dsh-web / dsh-credentials / schemastery）与 engines 都锚在此。
-- **依赖决策表**：peer = 外置（宿主供给同一实例，运行期共享）；dependencies = 内联自带；devDependencies = 只许 `import type`。唯一事实源是 `package.json`（`scripts/lib/manifest-deps.mjs` 派生 tsdown 三件套），源码导入纪律由 `tests/import-guard.spec.ts` 机械执行。本插件不消费 cordis（无任何 cordis 导入），无 cordis 条目。
+- **依赖决策表**：peer = 外置（宿主供给同一实例，运行期共享）；dependencies = 内联自带；devDependencies = 只许 `import type`。唯一事实源是 `package.json`（`@dreamariner/dsh-ctl/manifest-deps` 派生 tsdown 三件套），源码导入纪律由 `tests/import-guard.spec.ts` 机械执行。本插件不消费 cordis（无任何 cordis 导入），无 cordis 条目。
 - **行文不用破折号「——」**（zero 知识库行文规范，2026-11-01 起）。

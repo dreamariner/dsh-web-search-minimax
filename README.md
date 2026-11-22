@@ -144,9 +144,9 @@ pnpm dev:hmr --remove   # 注销本仓全部注册
   改动被丢弃、macOS FSEvents 注册窗口。生产/分发场景不需要 hmr。
 
 仓内脚本在根 `scripts/`：`dev-hmr.mjs`（上面的 hmr 接线）、
-`scripts/lib/manifest-deps.mjs`（tsdown 配置经 `./scripts/lib/manifest-deps.mjs` 引用）。
+`@dreamariner/dsh-ctl/manifest-deps`（tsdown 配置经 `./@dreamariner/dsh-ctl/manifest-deps` 引用）。
 
-依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery、dsh-web、dsh-credentials）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `scripts/lib/manifest-deps.mjs` 从它派生。
+依赖纪律（不变式 I1/I2）：`peerDependencies`（schemastery、dsh-web、dsh-credentials）外置由宿主供给同一实例，其余运行期依赖内联进产物；名单唯一来源是 `package.json`，tsdown 的 `deps` 三件套由 `@dreamariner/dsh-ctl/manifest-deps` 从它派生。
 
 `@deepseek-ai/dsh-web` 必须在 peer 名单里：DSH 的模块解析器按 `peerDependencies` 判定，把 peer 的导入拦截并路由到宿主自己的那份实例。
 这条是「错误码能进工具层结构化元数据」的前提，工具层取 code 的判定是 `error instanceof HarnessError`，认的是**类实例身份**。

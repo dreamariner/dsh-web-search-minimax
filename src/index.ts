@@ -44,7 +44,12 @@ import {
 export const name = 'dsh-web-search-minimax'
 // web 是注册入口（ctx.web.registerSearchProvider）。inject 是白名单，漏写则 ctx.web 为
 // undefined，而 loader 静默吞掉插件异常 —— 表现为「插件静默失效」而非报错（坑位 11）。
-export const inject = ['web']
+// credentials（082 同类修复）：apply() 装载时即读 ctx.get('credentials')，且 available()
+// 直接以它判「有无途径」。漏声明会让插件在凭据服务（异步读文件+挂 watcher）就绪前启动，
+// credentials 恒为 undefined → available() 返回 false → provider 从设置页消失
+// （2026-11-25 实测 init 日志：credentials:false / available:false）。
+// cordis 的 _refresh() 会等 inject 里每个服务 ACTIVE 后才调 apply()，声明即依赖。
+export const inject = ['web', 'credentials']
 export { Config }
 
 /** provider 在 web 行里的 id。 */
@@ -232,8 +237,10 @@ export function apply(ctx: any, rawConfig?: Partial<WebSearchMinimaxConfig> | nu
   const credentials: CredentialProvider | undefined = ctx.get?.('credentials')
   const resolveSecret = createKeyResolver(ctx, credentials)
   const keyEnv = effectiveSearchKeyEnv(cfg)
-  // 只打变量名与基址（生效值），绝不打密钥值
-  log('info', `init： ${JSON.stringify({ id: PROVIDER_ID, region: cfg.region, searchBaseUrl: effectiveSearchBaseUrl(cfg), searchKeyEnv: keyEnv, available: resolveKey(keyEnv) !== undefined, credentials: credentials !== undefined })}`)
+  // 只打变量名与基址（生效值），绝不打密钥值。
+  // 082：字段语义说清楚——envKey 只表示环境层能否同步读到，不是 provider 可用性；
+  // 真正生效的 available() 是「环境层有值 或 凭据 seam 在场」，后者才是模型页配好的常态。
+  log('info', `init： ${JSON.stringify({ id: PROVIDER_ID, region: cfg.region, searchBaseUrl: effectiveSearchBaseUrl(cfg), searchKeyEnv: keyEnv, envKey: resolveKey(keyEnv) !== undefined, credentials: credentials !== undefined, available: resolveKey(keyEnv) !== undefined || credentials !== undefined })}`)
 
   const web = ctx.web
   if (web === undefined || typeof web.registerSearchProvider !== 'function') {

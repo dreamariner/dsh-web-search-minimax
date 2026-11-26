@@ -56,4 +56,26 @@ describe('bundle 形态自守', () => {
     expect(pkg.dsh?.client?.platform).toBe('web')
     expect(pkg.dsh?.client?.immediately).toBe(true)
   })
+
+  it('inject 不含 credentials（硬依赖会让 headless 永不装载）', () => {
+    // cordis 的 inject 是硬依赖：任一服务缺席就永不调 apply()。headless 模板把
+    // credentials 显式 disabled（一次性任务用启动环境注入密钥），因此声明它 =
+    // 本插件在 headless 里停在 `pending (waiting for service: credentials)`（2026-11-26 实测）。
+    // 凭据服务改由 createKeyResolver 每次现取，见 src/index.ts 的 inject 注释。
+    const src = readFileSync(join(ROOT, 'src', 'index.ts'), 'utf8')
+    const line = src.split('\n').find(l => l.startsWith('export const inject'))
+    expect(line, '未找到 export const inject 声明').toBeDefined()
+    expect(line).toContain("'web'")
+    expect(line).not.toContain('credentials')
+  })
+
+  it('client 产物不带 sourcemap（发布面不含 src：map 的 sourcesContent 会把源码全文打进包）', () => {
+    // tsdown.client.config.ts 的 sourcemap: true 会让 lib/client.js.map 携带
+    // sourcesContent（完整的 src/client/index.tsx）。而 files 白名单收的是 lib 整个
+    // 目录，map 就跟着进了 npm 包（0.1.3 实测 13195 字节源码外泄）。
+    // AGENTS.md 红线：发布面不含 src。
+    const clientConfig = readFileSync(join(ROOT, 'tsdown.client.config.ts'), 'utf8')
+    const enabled = /^\s*sourcemap:\s*(true|\{[^}]*sourcesContent:\s*true)/m.test(clientConfig)
+    expect(enabled, 'client 构建不得开启 sourcemap（或必须关掉 sourcesContent）').toBe(false)
+  })
 })

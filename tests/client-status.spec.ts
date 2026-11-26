@@ -33,8 +33,8 @@ describe('isOurBundlePage（subject 过滤）', () => {
 })
 
 describe('badgeText（三态文案）', () => {
-  it('serving → 搜索生效中；superseded / auto → 未接管搜索；not-registered / unknown / loading → 对应文案', () => {
-    expect(badgeText(serving.status)).toBe('搜索生效中')
+  it('serving → 已接管搜索（不是「生效中」：密钥可用性客户端看不到）；superseded / auto → 未接管搜索', () => {
+    expect(badgeText(serving.status)).toBe('已接管搜索')
     expect(badgeText(superseded.status)).toBe('未接管搜索')
     expect(badgeText(auto.status)).toBe('未接管搜索')
     expect(badgeText({ kind: 'not-registered' })).toBe('provider 未注册')
@@ -63,16 +63,19 @@ describe('readEffective（settings describe 投影读取）', () => {
 })
 
 describe('sectionContent（三行状态 + 指引）', () => {
-  it('serving：三行全 ✓，无指引', () => {
-    const { rows, hint } = sectionContent(serving)
+  it('serving：三行全 ✓，无指引，但有「可用性以 host 判定为准」的边界说明', () => {
+    const { rows, hint, note } = sectionContent(serving)
     expect(rows).toHaveLength(3)
     expect(rows.every((r) => r.ok === true)).toBe(true)
     expect(rows[1].value).toBe('minimax（本插件）')
     expect(rows[2].value).toContain('MINIMAX_CN_API_KEY')
     expect(hint).toBeUndefined()
+    // badge 只说「已接管」，密钥真实可用性归 host 的 ready?()；这里必须给出可查的地方
+    expect(note).toContain('dsh:probe')
   })
-  it('superseded：当前提供方带出对方名字，指引带精确设置页路径', () => {
-    const { rows, hint } = sectionContent(superseded)
+  it('superseded：当前提供方带出对方名字，指引带精确设置页路径，无可用性说明', () => {
+    const { rows, hint, note } = sectionContent(superseded)
+    expect(note).toBeUndefined()
     expect(rows[1]?.value).toBe('deepseek-official')
     expect(rows[1]?.ok).toBe(false)
     expect(hint).toContain('网页搜索与获取')
@@ -87,9 +90,12 @@ describe('sectionContent（三行状态 + 指引）', () => {
     expect(sectionContent(loading).hint).toBeUndefined()
     expect(sectionContent({ status: { kind: 'unknown' }, registered: false }).hint).toBeUndefined()
   })
-  it('密钥不可查询时如实呈现（不代表缺失）', () => {
+  it('密钥不可判定时如实呈现（不代表缺失，也不给 ✗）', () => {
+    // 语义（2026-11-26）：默认变量名都没在托管存储里查到 -> undefined（不可判定），
+    // 不再是 false。因为用户可能配了自定义 searchKeyEnv（非 volatile，client 读不到）
+    // 或把值放在 .env 环境层（远程面不暴露）。false 会渲染成 ✗，误导成「密钥缺失」。
     const { rows } = sectionContent({ status: { kind: 'serving' }, registered: true })
-    expect(rows[2]?.value).toContain('无法查询')
+    expect(rows[2]?.value).toContain('客户端不可见')
     expect(rows[2]?.ok).toBeUndefined()
   })
 })
@@ -141,14 +147,51 @@ describe('apply 接线（槽位注册 + controller 生命周期）', () => {
     expect(typeof badge.inject?.().controller.subscribe).toBe('function')
   })
 
-  it('首轮读取：serving 快照带托管密钥结论（事件订阅已挂三项）', async () => {
+  it('首轮读取：serving 快照带托管密钥结论（事件订阅已挂四项）', async () => {
     const { registered, remoteEvents, ctxEvents, settle } = mountClient(okRemotes())
     await settle()
     const controller = registered[0].inject().controller
     expect(controller.snapshot.status.kind).toBe('serving')
     expect(controller.snapshot.keyConfigured).toBe(true)
-    expect(Object.keys(remoteEvents).sort()).toEqual(['settings/document-updated', 'web/providers-changed'])
+    // credentials/reference-updated：设置页填/清 key 后当场刷新
+    expect(Object.keys(remoteEvents).sort()).toEqual(
+      ['credentials/reference-updated', 'settings/document-updated', 'web/providers-changed'],
+    )
     expect(ctxEvents['connection/reset']).toHaveLength(1)
+  })
+
+  it('没有定时器：start() 只挂事件、不做轮询', async () => {
+    // 轮询曾被用来「等凭据服务就绪」，但那个窗口不存在：
+    //   · cordis 的 ctx.get 默认 strict，过滤非 ACTIVE fiber；credentials-local 的 init
+    //     生成器先 await loadInitial()，所以拿到句柄时数据已就绪；
+    //   · boot 在返回前 await loader.await() 等全部 entry 落定；客户端连接发生在
+    //     webServer listen 之后；
+    //   · 三个 remote 命名空间的挂载竞态由 apply() 的 ctx.inject 就绪门覆盖。
+    // 状态变化全部由事件驱动，定时重读只是噪音（还会在卸载后继续跑）。
+    const spy = vi.spyOn(globalThis, 'setInterval')
+    try {
+      const { registered, effectCleanups } = mountClient(okRemotes())
+      expect(registered.length).toBeGreaterThan(0)
+      expect(spy).not.toHaveBeenCalled()
+      // 清理函数能正常退订（资源纪律不受影响）
+      for (const d of effectCleanups) d()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('凭据变更事件触发重读：设置页填 key 后面板当场刷新', async () => {
+    const remotes = okRemotes()
+    // 首轮：默认名都未托管 -> 不可判定（undefined，不是 false）
+    remotes.credentials.describe = vi.fn(async () => ({ ok: true, value: { MINIMAX_CN_API_KEY: { configured: false } } }))
+    const { registered, remoteEvents, settle } = mountClient(remotes)
+    await settle()
+    const controller = registered[0].inject().controller
+    expect(controller.snapshot.keyConfigured).toBeUndefined()
+    remotes.credentials.describe = vi.fn(async () => ({ ok: true, value: { MINIMAX_CN_API_KEY: { configured: true } } }))
+    for (const cb of remoteEvents['credentials/reference-updated']) cb()
+    await settle()
+    expect(controller.snapshot.keyConfigured).toBe(true)
   })
 
   it('未注册（listProviders 无 minimax）→ not-registered', async () => {
@@ -180,7 +223,47 @@ describe('apply 接线（槽位注册 + controller 生命周期）', () => {
     const snapshot = registered[0].inject().controller.snapshot
     expect(snapshot.status.kind).toBe('unknown')
     expect(snapshot.keyConfigured).toBeUndefined()
-    expect(sectionContent(snapshot).rows[2].value).toContain('无法查询')
+    expect(sectionContent(snapshot).rows[2].value).toContain('客户端不可见')
+  })
+
+  it('读失败不误报「未注册」：listProviders 返回 ok:false → unknown，不是 not-registered', async () => {
+    // 回归 2026-11-26：旧实现把 ok:false 当成「列表为空」，于是算 registered=false，
+    // badge 显示「provider 未注册」。一次网络抖动 / 网关错误就会把人引去查安装。
+    const remotes: any = okRemotes()
+    remotes.web.listProviders = vi.fn(async () => ({ ok: false, error: { code: 'gateway/internal' } }))
+    const { registered, settle } = mountClient(remotes)
+    await settle()
+    const snapshot = registered[0].inject().controller.snapshot
+    expect(snapshot.status.kind).toBe('unknown')
+    expect(snapshot.registered).toBe(false)
+    // provider 注册行不给 ✗（无法确认 ≠ 未注册）
+    expect(sectionContent(snapshot).rows[0].value).toBe('无法确认')
+    expect(sectionContent(snapshot).rows[0].ok).toBeUndefined()
+  })
+
+  it('并发读乱序：旧轮的慢响应不得覆盖新一轮的状态', async () => {
+    // 回归 2026-11-26：read() 跨多个 await，期间可被事件再触发一轮。没有序列号时
+    // 慢的旧轮晚回来会用过期答案覆盖新状态（实测把 superseded 盖回 serving）。
+    const remotes = okRemotes()
+    let call = 0
+    remotes.settings.describe = vi.fn(async () => {
+      const n = ++call
+      // 第一轮慢：答案是 minimax（serving）；第二轮快：答案是 deepseek-official
+      if (n === 1) {
+        await new Promise((r) => setTimeout(r, 60))
+        return { ok: true, value: { namespaces: [{ ns: 'web', value: { searchProvider: 'minimax' } }] } }
+      }
+      return { ok: true, value: { namespaces: [{ ns: 'web', value: { searchProvider: 'deepseek-official' } }] } }
+    })
+    const { registered, remoteEvents, settle } = mountClient(remotes)
+    await new Promise((r) => setTimeout(r, 5))
+    // 此时第一轮还在飞；触发事件开启第二轮
+    for (const cb of remoteEvents['settings/document-updated'] ?? []) cb()
+    await new Promise((r) => setTimeout(r, 150))
+    await settle()
+    const controller = registered[0].inject().controller
+    // 最终必须是第二轮（最新）的答案
+    expect(controller.snapshot.status).toEqual({ kind: 'superseded', effective: 'deepseek-official' })
   })
 
   it('refresh() 手动重读：设置页切走后组件挂载路径也能自愈旧快照', async () => {

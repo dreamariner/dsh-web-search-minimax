@@ -20,7 +20,11 @@ export default defineConfig({
   target: 'es2022',
   fixedExtension: false,
   dts: false,
-  sourcemap: true,
+  // sourcemap 必须关：files 白名单收的是 lib 整个目录，map 里的 sourcesContent
+  // 会带上完整的 src/client/index.tsx，等于把源码塞进 npm 包。
+  // AGENTS.md 红线「发布面不含 src」；0.1.3 曾因此把 13KB 源码发出去（2026-11-26 发现）。
+  // 需要本地调试时临时改 true，别提交。
+  sourcemap: false,
   deps: {
     neverBundle: EXTERNALS,
     alwaysBundle: (specifier: string) => !EXTERNALS.includes(specifier),

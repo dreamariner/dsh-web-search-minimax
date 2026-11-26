@@ -1,7 +1,7 @@
 {
   "name": "@dreamariner/dsh-web-search-minimax",
   "description": "DeepSeek Harness 的 MiniMax 联网搜索 provider：走 MiniMax Coding Plan 搜索接口，密钥与 DSH 模型配置中的 MiniMax 提供商共用（国内 / 国际版 region 切换）",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "main": "./lib/index.js",
   "icon": "./icon.svg",
@@ -55,11 +55,13 @@
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-credentials": ">=0.2.2-rc.5 <0.3.0-0",
+    "@deepseek-ai/dsh-launch-environment": ">=0.2.2-rc.5 <0.3.0-0",
     "@deepseek-ai/dsh-web": ">=0.2.2-rc.5 <0.3.0-0",
     "@deepseek-ai/schemastery": ">=3.19.0 <4.0.0-0"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-launch-environment": "0.2.2-rc.5",
     "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
     "@deepseek-ai/dsh-web": "0.2.2-rc.5",
     "@deepseek-ai/schemastery": "3.19.0",

@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { WebError } from '@deepseek-ai/dsh-web'
+import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { apply, mapSources, resolveKey, PROVIDER_ID, API_HARD_CAP, name } from '../src/index.ts'
 import {
   Config,
@@ -75,10 +76,15 @@ describe('provider 契约', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('缺密钥时 available() 为 false（不抛错，交由 seam 判定）', () => {
-    // 用 .env 里不存在的变量名：resolveKey 会回落到读 ~/.dsh/.env，只删进程变量不够
+  it('available() 不判密钥：缺密钥仍为 true（密钥归 ready()，见下一条）', () => {
+    // 语义变更（2026-11-26）：available() 只做结构检查，不判密钥有无。
+    // 依据上游契约：available() 是「廉价本地可用性检查」，内置 web-search-deepseek 也只
+    // 校验配置形状。更重要的是启动窗口：凭据服务异步 init，装载时若在 available() 答
+    // false，而本插件 patch 又把 searchProvider 钉成 minimax，seam 会立刻抛
+    // WEB_PROVIDER_CONFIGURED_UNAVAILABLE。判密钥的职责在 ready()。
     const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' })
-    expect(provider.available()).toBe(false)
+    expect(provider.available()).toBe(true)
+    expect(typeof provider.ready).toBe('function')
   })
 
   it('ready()：环境层有密钥时为 true 且不发网络（searchReady 链路据此准入 web_search）', async () => {
@@ -170,16 +176,41 @@ describe('凭据来源（与内置 web-search-deepseek 同构）', () => {
     await expect(provider.search({ query: 'x' })).rejects.toThrow(/未找到密钥/)
   })
 
-  it('available()：环境层读不到但 seam 在场时仍为 true（托管存储里可能有值）', () => {
+  it('available() 与凭据有无无关：seam 在场、无值时仍为 true', () => {
     const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' }, {
       credentials: { resolve: async () => undefined },
     })
     expect(provider.available()).toBe(true)
   })
 
-  it('没有 seam 时 available() 仍只看环境层（不凭空判可用）', () => {
-    const { provider } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' })
-    expect(provider.available()).toBe(false)
+  it('没有 seam（headless 形态）时 provider 照常注册，available() 为 true、ready() 看环境层', async () => {
+    // 这是 headless 的核心保障：凭据服务按设计被 disable，插件仍须装载并可用。
+    const { provider, fetchMock } = mount({ searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' })
+    expect(provider.available()).toBe(true)
+    await expect(provider.ready?.(undefined)).resolves.toBe(false)
+    process.env.DSH_NO_SUCH_ENV_FOR_TEST = 'sk-from-headless-env'
+    try {
+      await expect(provider.ready?.(undefined)).resolves.toBe(true)
+    } finally {
+      delete process.env.DSH_NO_SUCH_ENV_FOR_TEST
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('凭据服务晚到也能自愈：apply 后才出现的 seam，下一轮解析即生效（不在 apply 时固化）', async () => {
+    // 回归 b4a18e6 的缺陷形态：旧实现把 ctx.get('credentials') 在 apply() 捕获一次，
+    // 若凭据服务那时还没 init 完，undefined 会被闭包永久记住。现取才能自愈。
+    const registered: any[] = []
+    let credentials: any
+    const ctx: any = {
+      web: { registerSearchProvider: (p: any) => registered.push(p) },
+      get: (key: string) => key === 'credentials' ? credentials : undefined,
+    }
+    apply(ctx, { searchKeyEnv: 'DSH_NO_SUCH_ENV_FOR_TEST' })
+    const provider = registered[0]
+    await expect(provider.ready?.(undefined)).resolves.toBe(false)
+    credentials = { resolve: async () => ({ value: 'sk-late-seam' }) }
+    await expect(provider.ready?.(undefined)).resolves.toBe(true)
   })
 
   it('变量名不合凭据引用语法时跳过 seam，不抛错（自拟名可能带短横线）', async () => {
@@ -409,9 +440,19 @@ describe('配置', () => {
     expect(() => resolveConfig(Config, { region: 'cn-global' }, name)).toThrow(/region/)
   })
 
-  it('resolveKey 从进程环境取值', () => {
-    expect(resolveKey('MINIMAX_CN_API_KEY')).toBe('sk-test-key')
-    expect(resolveKey('DSH_不存在的变量')).toBeUndefined()
+  it('resolveKey 走启动环境快照（无 ctx 时退化为只看 process.env）', () => {
+    expect(resolveKey(undefined, 'MINIMAX_CN_API_KEY')).toBe('sk-test-key')
+    expect(resolveKey(undefined, 'DSH_不存在的变量')).toBeUndefined()
+  })
+
+  it('resolveKey 优先用 ctx 提供的 launchEnvironment 快照（含 project-env 层）', () => {
+    // 上游契约：launchEnvironmentOf(ctx) 取 ctx.get('launchEnvironment')，没有则用
+    // 单层 process 快照。这里给一个只含 project-env 的快照，验证走的是它而不是 process.env。
+    const snapshot = createLaunchEnvironmentSnapshot([
+      { source: 'project-env', path: '/tmp/.env', values: { MINIMAX_CN_API_KEY: 'sk-from-project-env' } },
+    ])
+    const ctx = { get: (key: string) => key === 'launchEnvironment' ? snapshot : undefined }
+    expect(resolveKey(ctx, 'MINIMAX_CN_API_KEY')).toBe('sk-from-project-env')
   })
 
   // 回归：logPath 一度硬编码 ~/.dsh/logs，而默认表达式在**模块加载时**求值 —— 早于

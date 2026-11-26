@@ -119,9 +119,21 @@ describe('apply 接线（生效自检 + 变更重判）', () => {
 
   it('inject 就绪回调收到 settings（scoped.settings 形态）→ 补判定', () => {
     const { ctx, lf } = mountWith(undefined)
-    const cb = ctx.inject.mock.calls[0][1] as (scoped: any) => void
+    // apply 会登记两个就绪回调：credentials（仅观测日志）与 settings（生效自检）。
+    // 按 key 取，不按调用序号，避免顺序变动把断言打歪。
+    const settingsCall = ctx.inject.mock.calls.find(([keys]: any[]) => Array.isArray(keys) && keys.includes('settings'))
+    expect(settingsCall).toBeDefined()
+    const cb = settingsCall![1] as (scoped: any) => void
     cb({ settings: { describe: () => [{ ns: 'web', value: { searchProvider: 'minimax' } }] } })
     expect(logs(lf).some((l) => l.includes('本插件正在接管搜索'))).toBe(true)
+  })
+
+  it('凭据服务缺席时登记一个就绪回调（只写日志，不阻塞装载）', () => {
+    const { ctx, lf } = mountWith({ describe: () => [] })
+    const credsCall = ctx.inject.mock.calls.find(([keys]: any[]) => Array.isArray(keys) && keys.includes('credentials'))
+    expect(credsCall).toBeDefined()
+    ;(credsCall![1] as () => void)()
+    expect(logs(lf).some((l) => l.includes('凭据服务已就绪'))).toBe(true)
   })
 
   it('document-updated 连发被防抖合并：两次触发只多一行重判（读最新值）', async () => {

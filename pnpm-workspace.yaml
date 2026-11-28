@@ -20,3 +20,4 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-util-values@0.2.2-rc.5'
   - '@deepseek-ai/dsh-web@0.2.2-rc.5'
   - '@dreamariner/dsh-ctl@0.6.0'
+  - '@dreamariner/dsh-ctl@0.7.0'
